@@ -119,4 +119,16 @@ class GrologTest extends GroovyTestCase {
         assert father.get() == [ 'Paul', 'John' ]
     }
 
+    void testSimpleRules() {
+        def grolog = new Grolog()
+        grolog.with {
+            parent 'John'
+            happy( 'John' ).iff( parent( 'John' ) )
+            happy( 'Mary' ).iff( happy( 'Mike' ) )
+        }
+
+        assert grolog.query( 'happy', 'John' ) == true
+        assert grolog.query( 'happy', 'Mary' ) == false
+    }
+
 }

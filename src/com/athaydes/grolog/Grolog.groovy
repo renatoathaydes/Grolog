@@ -8,21 +8,55 @@ class Grolog {
     private List propositions = [ ]
 
     def methodMissing( String name, args ) {
+        println "Missing method $name, $args"
+        def factsSize = facts.size()
+        def propositionsSize = propositions.size()
         if ( args ) {
             facts << [ ( name ): args ]
         } else {
             propositions << name
         }
+        return [ iff: { previousMap ->
+            def prev = previousMap.prev()
+            println "IFF $prev"
+            def ruleOk = ( prev instanceof Map ) ?
+                    internalQuery( prev.keySet().first(), facts[ 0..<factsSize ], [ ], prev.values().first() ) :
+                    internalQuery( prev, [ ], propositions[ 0..<propositionsSize ] )
+            println "Rule ok? $ruleOk"
+            if ( !ruleOk ) {
+                if ( args ) {
+                    println "Removing ${facts[factsSize-1]}"
+                    facts.remove( factsSize - 1 )
+                } else {
+                    propositions.remove( propositionsSize - 1 )
+                }
+            }
+            if (prev instanceof Map) {
+                facts.remove( prev )
+            } else {
+                propositions.remove( prev )
+            }
+        }, prev     : {
+            if ( args ) {
+                [ ( name ): args ]
+            } else {
+                name
+            }
+        } ]
     }
 
     def propertyMissing( String name ) {
-        println "Property missing: $name"
+        println "Missing prop: $name"
         propositions << name
     }
 
     def query( String q, Object... args ) {
         assert q, 'A query must be provided'
+        internalQuery( q, facts, propositions, args )
+    }
 
+    private internalQuery( String q, List facts, List propositions, Object... args ) {
+        println "Query $q ? $args --- Facts: $facts"
         def foundFacts = facts.findAll { it."$q" != null }.collect { it.values().flatten() }
 
         if ( !args ) {
