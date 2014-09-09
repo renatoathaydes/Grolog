@@ -1,6 +1,6 @@
 package com.athaydes.grolog
 
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicReference as Var
 
 class GrologTest extends GroovyTestCase {
 
@@ -14,6 +14,8 @@ class GrologTest extends GroovyTestCase {
 
         assert grolog.query( 'man' ) == [ 'John', 'Mike' ]
         assert grolog.query( 'woman' ) == [ 'Mary' ]
+
+        assert grolog.query( 'undecided' ) == [ ]
     }
 
     void testSimple1ArgFacts() {
@@ -29,6 +31,9 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'woman', 'Mary' ) == true
         assert grolog.query( 'man', 'Mike' ) == true
         assert grolog.query( 'man', 'Mary' ) == false
+
+        assert grolog.query( 'undecided', 'Mary' ) == false
+        assert grolog.query( 'undecided', 'Ivy' ) == false
     }
 
     void testSimple2ArgsFactsResolving2ndArg() {
@@ -38,11 +43,11 @@ class GrologTest extends GroovyTestCase {
             father 'Mary', 'John'
         }
 
-        def johnsFather = new AtomicReference( null )
+        def johnsFather = new Var( null )
         grolog.query( 'father', 'John', johnsFather )
         assert johnsFather.get() == 'Paul'
 
-        def marysFather = new AtomicReference( null )
+        def marysFather = new Var( null )
         grolog.query( 'father', 'Mary', marysFather )
         assert marysFather.get() == 'John'
     }
@@ -54,11 +59,11 @@ class GrologTest extends GroovyTestCase {
             father 'Mary', 'John'
         }
 
-        def paulsSon = new AtomicReference( null )
+        def paulsSon = new Var( null )
         grolog.query( 'father', paulsSon, 'Paul' )
         assert paulsSon.get() == 'John'
 
-        def childOfJohn = new AtomicReference( null )
+        def childOfJohn = new Var( null )
         grolog.query( 'father', childOfJohn, 'John' )
         assert childOfJohn.get() == 'Mary'
     }
@@ -71,7 +76,7 @@ class GrologTest extends GroovyTestCase {
             father 'Mary', 'John'
         }
 
-        def richardsSon = new AtomicReference( null )
+        def richardsSon = new Var( null )
         grolog.query( 'father', richardsSon, 'Richard' )
         assert richardsSon.get() == null
     }
@@ -83,7 +88,7 @@ class GrologTest extends GroovyTestCase {
             father 'Mary', 'John'
         }
 
-        def richardsFather = new AtomicReference( null )
+        def richardsFather = new Var( null )
         grolog.query( 'father', 'Richard', richardsFather )
         assert richardsFather.get() == null
     }
@@ -95,8 +100,8 @@ class GrologTest extends GroovyTestCase {
             father 'Mary', 'John'
         }
 
-        def child = new AtomicReference( null )
-        def father = new AtomicReference( null )
+        def child = new Var( null )
+        def father = new Var( null )
         grolog.query( 'father', child, father )
         assert child.get() == [ 'John', 'Mary' ]
         assert father.get() == [ 'Paul', 'John' ]
