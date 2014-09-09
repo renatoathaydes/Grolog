@@ -8,16 +8,24 @@ class Grolog {
 
     def methodMissing( String name, args ) {
         facts << [ ( name ): args ]
-        println facts
     }
 
-    void query( String q, Object... args ) {
-        def facts = facts.findAll { it."$q" != null }.collect { it.values().flatten() }
-        println "Found facts $facts: $q : $args"
-        for ( fact in facts ) {
-            match fact, args, 0, [ ]
+    def query( String q, Object... args ) {
+        assert q, 'A query must be provided'
+
+        def foundFacts = facts.findAll { it."$q" != null }.collect { it.values().flatten() }
+
+        if ( !args ) {
+            return foundFacts.flatten()
         }
 
+        if ( args.size() == 1 ) {
+            return args[ 0 ] in foundFacts.flatten()
+        }
+
+        for ( fact in foundFacts ) {
+            match fact, args, 0, [ ]
+        }
     }
 
     private void match( List fact, Object[] args, int index, List maybeMatches ) {

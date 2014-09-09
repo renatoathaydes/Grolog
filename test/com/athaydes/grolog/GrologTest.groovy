@@ -4,6 +4,33 @@ import java.util.concurrent.atomic.AtomicReference
 
 class GrologTest extends GroovyTestCase {
 
+    void testSimpleNoArgsFacts() {
+        def grolog = new Grolog()
+        grolog.with {
+            man 'John'
+            woman 'Mary'
+            man 'Mike'
+        }
+
+        assert grolog.query( 'man' ) == [ 'John', 'Mike' ]
+        assert grolog.query( 'woman' ) == [ 'Mary' ]
+    }
+
+    void testSimple1ArgFacts() {
+        def grolog = new Grolog()
+        grolog.with {
+            man 'John'
+            woman 'Mary'
+            man 'Mike'
+        }
+
+        assert grolog.query( 'man', 'John' ) == true
+        assert grolog.query( 'woman', 'John' ) == false
+        assert grolog.query( 'woman', 'Mary' ) == true
+        assert grolog.query( 'man', 'Mike' ) == true
+        assert grolog.query( 'man', 'Mary' ) == false
+    }
+
     void testSimple2ArgsFactsResolving2ndArg() {
         def grolog = new Grolog()
         grolog.with {
