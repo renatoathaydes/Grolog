@@ -15,18 +15,30 @@ class Grolog {
         def facts = facts.findAll { it."$q" != null }.collect { it.values().flatten() }
         println "Found facts $facts: $q : $args"
         for ( fact in facts ) {
-            match fact, args
+            match fact, args, 0, [ ]
         }
 
     }
 
-    private void match( List fact, Object[] args ) {
-        if ( !fact || !args ) return
-        println "Checking match $fact : $args"
-        if ( args.first() instanceof AtomicReference ) {
-            args.first().set( fact.first() )
-        } else if ( fact.first() == args.first() ) {
-            match fact.tail(), args.tail()
+    private void match( List fact, Object[] args, int index, List maybeMatches ) {
+        if ( index >= fact.size() || index >= args.size() ) {
+            bindMatches maybeMatches
+            return
+        }
+
+        def queryArg = args[ index ] instanceof AtomicReference
+
+        if ( queryArg ) {
+            maybeMatches << [ args[ index ], fact[ index ] ]
+        }
+        if ( queryArg || fact[ index ] == args[ index ] ) {
+            match fact, args, index + 1, maybeMatches
+        }
+    }
+
+    private void bindMatches( List maybeMatches ) {
+        for ( maybeMatch in maybeMatches ) {
+            maybeMatch[ 0 ].set maybeMatch[ 1 ]
         }
     }
 

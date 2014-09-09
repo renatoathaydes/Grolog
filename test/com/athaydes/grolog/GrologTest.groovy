@@ -33,7 +33,7 @@ class GrologTest extends GroovyTestCase {
 
         def childOfJohn = new AtomicReference( false )
         grolog.query( 'father', childOfJohn, 'John' )
-        assert childxOfJohn.get() == 'Mary'
+        assert childOfJohn.get() == 'Mary'
     }
 
 }
