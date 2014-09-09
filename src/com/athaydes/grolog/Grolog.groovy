@@ -5,9 +5,19 @@ import java.util.concurrent.atomic.AtomicReference
 class Grolog {
 
     private List facts = [ ]
+    private List propositions = [ ]
 
     def methodMissing( String name, args ) {
-        facts << [ ( name ): args ]
+        if ( args ) {
+            facts << [ ( name ): args ]
+        } else {
+            propositions << name
+        }
+    }
+
+    def propertyMissing( String name ) {
+        println "Property missing: $name"
+        propositions << name
     }
 
     def query( String q, Object... args ) {
@@ -16,7 +26,7 @@ class Grolog {
         def foundFacts = facts.findAll { it."$q" != null }.collect { it.values().flatten() }
 
         if ( !args ) {
-            return foundFacts.flatten()
+            return propositions.contains( q ) ?: foundFacts.flatten()
         }
 
         if ( args.size() == 1 ) {
