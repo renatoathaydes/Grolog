@@ -38,7 +38,14 @@ class Grolog {
 
     private void bindMatches( List maybeMatches ) {
         for ( maybeMatch in maybeMatches ) {
-            maybeMatch[ 0 ].set maybeMatch[ 1 ]
+            def current = maybeMatch[ 0 ].get()
+            if ( current == null ) {
+                maybeMatch[ 0 ].set maybeMatch[ 1 ]
+            } else if ( current instanceof List ) {
+                current << maybeMatch[ 1 ]
+            } else {
+                maybeMatch[ 0 ].set( [ current, maybeMatch[ 1 ] ] )
+            }
         }
     }
 
