@@ -1,48 +1,25 @@
 package com.athaydes.grolog
 
+import com.athaydes.grolog.internal.Clause
+import com.athaydes.grolog.internal.Condition
+
 import java.util.concurrent.atomic.AtomicReference
 
 class Grolog {
 
-    private List facts = [ ]
-    private List propositions = [ ]
+    private Map<String, List<Clause>> facts = [ : ]
+    private List<String> propositions = [ ]
 
     def methodMissing( String name, args ) {
         println "Missing method $name, $args"
-        def factsSize = facts.size()
-        def propositionsSize = propositions.size()
-        if ( args ) {
-            facts << [ ( name ): args ]
+        boolean fact = args;
+        Clause clause = null
+        if ( fact ) {
+            facts.get( name, [ ] ) << ( clause = new Clause( this, name, args ?: [ ] ) )
         } else {
             propositions << name
         }
-        return [ iff: { previousMap ->
-            def prev = previousMap.prev()
-            println "IFF $prev"
-            def ruleOk = ( prev instanceof Map ) ?
-                    internalQuery( prev.keySet().first(), facts[ 0..<factsSize ], [ ], prev.values().first() ) :
-                    internalQuery( prev, [ ], propositions[ 0..<propositionsSize ] )
-            println "Rule ok? $ruleOk"
-            if ( !ruleOk ) {
-                if ( args ) {
-                    println "Removing ${facts[factsSize-1]}"
-                    facts.remove( factsSize - 1 )
-                } else {
-                    propositions.remove( propositionsSize - 1 )
-                }
-            }
-            if (prev instanceof Map) {
-                facts.remove( prev )
-            } else {
-                propositions.remove( prev )
-            }
-        }, prev     : {
-            if ( args ) {
-                [ ( name ): args ]
-            } else {
-                name
-            }
-        } ]
+        new Condition( clause )
     }
 
     def propertyMissing( String name ) {
@@ -52,51 +29,76 @@ class Grolog {
 
     def query( String q, Object... args ) {
         assert q, 'A query must be provided'
-        internalQuery( q, facts, propositions, args )
-    }
-
-    private internalQuery( String q, List facts, List propositions, Object... args ) {
         println "Query $q ? $args --- Facts: $facts"
-        def foundFacts = facts.findAll { it."$q" != null }.collect { it.values().flatten() }
+
+        def foundFacts = facts[ q ]
 
         if ( !args ) {
-            return propositions.contains( q ) ?: foundFacts.flatten()
+            return propositions.contains( q ) ?:
+                    ( foundFacts ? foundFacts*.args.flatten() : false )
         }
 
         if ( args.size() == 1 ) {
-            return args[ 0 ] in foundFacts.flatten()
+            return foundFacts != null && args[ 0 ] in foundFacts*.args.flatten()
         }
 
-        for ( fact in foundFacts ) {
-            match fact, args, 0, [ ]
-        }
+        match foundFacts, args, 0, [ ]
+        return null
     }
 
-    private void match( List fact, Object[] args, int index, List maybeMatches ) {
-        if ( index >= fact.size() || index >= args.size() ) {
-            bindMatches maybeMatches
+    private static void match( List<Clause> facts, Object[] args, int index,
+                               List maybeMatches ) {
+        def candidateFacts = facts.findAll { it.args.size() >= index }
+        if ( index >= args.size() ) {
+            if ( candidateFacts ) {
+                bindMatches maybeMatches, facts
+            }
             return
         }
 
         def queryArg = args[ index ] instanceof AtomicReference
+        def matchingFacts = null
 
         if ( queryArg ) {
-            maybeMatches << [ args[ index ], fact[ index ] ]
+            maybeMatches << [ args[ index ], candidateFacts, index ]
+        } else {
+            matchingFacts = factMatches( candidateFacts, args, index )
         }
-        if ( queryArg || fact[ index ] == args[ index ] ) {
-            match fact, args, index + 1, maybeMatches
+
+        if ( queryArg || matchingFacts ) {
+            match queryArg ? candidateFacts : matchingFacts, args, index + 1, maybeMatches
         }
     }
 
-    private void bindMatches( List maybeMatches ) {
+    private static List<Clause> factMatches( List<Clause> facts, Object[] args, int index ) {
+        facts.findAll { it.args[ index ] == args[ index ] }
+    }
+
+    private static void bindMatches( List maybeMatches, List<Clause> trueFacts ) {
+        if ( !trueFacts ) {
+            return
+        }
         for ( maybeMatch in maybeMatches ) {
-            def current = maybeMatch[ 0 ].get()
-            if ( current == null ) {
-                maybeMatch[ 0 ].set maybeMatch[ 1 ]
-            } else if ( current instanceof List ) {
-                current << maybeMatch[ 1 ]
+            AtomicReference current = maybeMatch[ 0 ]
+            List<Clause> maybeFacts = maybeMatch[ 1 ]
+            int index = maybeMatch[ 2 ]
+
+            def currentValue = maybeFacts.findAll { it in trueFacts }.collect { it.args[ index ] }
+
+            if ( current.get() == null ) {
+                current.set currentValue
             } else {
-                maybeMatch[ 0 ].set( [ current, maybeMatch[ 1 ] ] )
+                current.get().addAll currentValue
+            }
+        }
+        ensureListsWithOneItemAreLifted maybeMatches
+    }
+
+    private static void ensureListsWithOneItemAreLifted( List maybeMatches ) {
+        for ( maybeMatch in maybeMatches ) {
+            AtomicReference current = maybeMatch[ 0 ]
+            if ( current.get() instanceof List && current.get().size() == 1 ) {
+                current.set( current.get()[ 0 ] )
             }
         }
     }

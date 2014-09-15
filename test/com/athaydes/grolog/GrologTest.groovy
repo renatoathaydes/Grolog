@@ -13,7 +13,7 @@ class GrologTest extends GroovyTestCase {
 
         assert grolog.query( 'world' ) == true
         assert grolog.query( 'water' ) == true
-        assert grolog.query( 'fire' ) == [ ]
+        assert grolog.query( 'fire' ) == false
     }
 
     void testSimpleNoArgsFacts() {
@@ -27,7 +27,7 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'man' ) == [ 'John', 'Mike' ]
         assert grolog.query( 'woman' ) == [ 'Mary' ]
 
-        assert grolog.query( 'undecided' ) == [ ]
+        assert grolog.query( 'undecided' ) == false
     }
 
     void testSimple1ArgFacts() {
@@ -123,8 +123,8 @@ class GrologTest extends GroovyTestCase {
         def grolog = new Grolog()
         grolog.with {
             parent 'John'
-            happy( 'John' ).iff( parent( 'John' ) )
-            happy( 'Mary' ).iff( happy( 'Mike' ) )
+            happy( 'John' ).iff { parent( 'John' ) }
+            happy( 'Mary' ).iff { happy( 'Mike' ) }
         }
 
         assert grolog.query( 'happy', 'John' ) == true
