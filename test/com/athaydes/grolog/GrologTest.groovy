@@ -138,14 +138,32 @@ class GrologTest extends GroovyTestCase {
             sun;
             moon;
             parent 'John'
-            happy( 'John' ).iff { parent( 'John' ) ; happiness ; sun ; moon ; }
-            happy( 'Rob' ).iff { parent( 'John' ) ; happiness ; sun ; sadness ; }
-            happy( 'Mary' ).iff { happy( 'Mike' ) ; sadness }
+            happy( 'John' ).iff { parent( 'John' ); happiness; sun; moon; }
+            happy( 'Rob' ).iff { parent( 'John' ); happiness; sun; sadness; }
+            happy( 'Mary' ).iff { happy( 'Mike' ); sadness }
         }
 
         assert grolog.query( 'happy', 'John' ) == true
         assert grolog.query( 'happy', 'Rob' ) == false
         assert grolog.query( 'happy', 'Mary' ) == false
+    }
+
+    void testGrooviness() {
+        def grolog = new Grolog()
+        grolog.with {
+            [ 'Mercury', 'Venus', 'Earth', 'Mars', 'Saturn', 'Jupiter', 'Uranus', 'Neptune' ].each {
+                planet it
+            }
+        }
+
+        assert grolog.query( 'planet', 'Mercury' ) == true
+        assert grolog.query( 'planet', 'Earth' ) == true
+        assert grolog.query( 'planet', 'Saturn' ) == true
+        assert grolog.query( 'planet', 'Jupiter' ) == true
+        assert grolog.query( 'planet', 'Neptune' ) == true
+
+        assert grolog.query( 'planet', 'Sun' ) == false
+        assert grolog.query( 'planet', 'Moon' ) == false
     }
 
 }
