@@ -24,8 +24,8 @@ class GrologTest extends GroovyTestCase {
             man 'Mike'
         }
 
-        assert grolog.query( 'man' ) == [ 'John', 'Mike' ]
-        assert grolog.query( 'woman' ) == [ 'Mary' ]
+        assert grolog.query( 'man' ) as Set == [ 'John', 'Mike' ] as Set
+        assert grolog.query( 'woman' ) as Set == [ 'Mary' ] as Set
 
         assert grolog.query( 'undecided' ) == false
     }
