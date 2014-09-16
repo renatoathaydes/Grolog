@@ -131,4 +131,21 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'happy', 'Mary' ) == false
     }
 
+    void testRulesWithManyPredicates() {
+        def grolog = new Grolog()
+        grolog.with {
+            happiness;
+            sun;
+            moon;
+            parent 'John'
+            happy( 'John' ).iff { parent( 'John' ) ; happiness ; sun ; moon ; }
+            happy( 'Rob' ).iff { parent( 'John' ) ; happiness ; sun ; sadness ; }
+            happy( 'Mary' ).iff { happy( 'Mike' ) ; sadness }
+        }
+
+        assert grolog.query( 'happy', 'John' ) == true
+        assert grolog.query( 'happy', 'Rob' ) == false
+        assert grolog.query( 'happy', 'Mary' ) == false
+    }
+
 }
