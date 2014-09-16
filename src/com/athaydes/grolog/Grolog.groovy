@@ -1,25 +1,24 @@
 package com.athaydes.grolog
 
-import com.athaydes.grolog.internal.Clause
+import com.athaydes.grolog.internal.Fact
 import com.athaydes.grolog.internal.Condition
 
 import java.util.concurrent.atomic.AtomicReference
 
 class Grolog {
 
-    private Map<String, List<Clause>> facts = [ : ]
+    private Map<String, List<Fact>> facts = [ : ]
     private List<String> propositions = [ ]
 
     def methodMissing( String name, args ) {
         println "Missing method $name, $args"
-        boolean fact = args;
-        Clause clause = null
-        if ( fact ) {
-            facts.get( name, [ ] ) << ( clause = new Clause( this, name, args ?: [ ] ) )
+        Fact fact = null
+        if ( args ) {
+            facts.get( name, [ ] ) << ( fact = new Fact( this, name, args ?: [ ] ) )
         } else {
             propositions << name
         }
-        new Condition( clause )
+        new Condition( fact )
     }
 
     def propertyMissing( String name ) {
@@ -46,7 +45,7 @@ class Grolog {
         return null
     }
 
-    private static void match( List<Clause> facts, Object[] args, int index,
+    private static void match( List<Fact> facts, Object[] args, int index,
                                List maybeMatches ) {
         def candidateFacts = facts.findAll { it.args.size() >= index }
         if ( index >= args.size() ) {
@@ -70,17 +69,17 @@ class Grolog {
         }
     }
 
-    private static List<Clause> factMatches( List<Clause> facts, Object[] args, int index ) {
+    private static List<Fact> factMatches( List<Fact> facts, Object[] args, int index ) {
         facts.findAll { it.args[ index ] == args[ index ] }
     }
 
-    private static void bindMatches( List maybeMatches, List<Clause> trueFacts ) {
+    private static void bindMatches( List maybeMatches, List<Fact> trueFacts ) {
         if ( !trueFacts ) {
             return
         }
         for ( maybeMatch in maybeMatches ) {
             AtomicReference current = maybeMatch[ 0 ]
-            List<Clause> maybeFacts = maybeMatch[ 1 ]
+            List<Fact> maybeFacts = maybeMatch[ 1 ]
             int index = maybeMatch[ 2 ]
 
             def currentValue = maybeFacts.findAll { it in trueFacts }.collect { it.args[ index ] }
