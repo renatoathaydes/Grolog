@@ -166,4 +166,22 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'planet', 'Moon' ) == false
     }
 
+    void testUnboundVariableRules() {
+        def grolog = new Grolog()
+
+        grolog.with {
+            married 'Renato', 'Nat'
+            married 'John', 'Mary'
+            married( A, B ).iff { married( B, A ) }
+        }
+
+        assert grolog.query( 'married', 'Renato', 'Nat' ) == true
+        assert grolog.query( 'married', 'Nat', 'Renato' ) == true
+        assert grolog.query( 'married', 'John', 'Mary' ) == true
+        assert grolog.query( 'married', 'Mary', 'John' ) == true
+
+        assert grolog.query( 'married', 'Renato', 'Mary' ) == false
+        assert grolog.query( 'married', 'Renato', 'John' ) == false
+    }
+
 }
