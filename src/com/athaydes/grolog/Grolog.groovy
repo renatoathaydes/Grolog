@@ -73,12 +73,12 @@ class Grolog {
         facts.findAll { it.args[ index ] == args[ index ] }
     }
 
-    private static void bindMatches( List maybeMatches, List<Fact> trueFacts ) {
+    private static void bindMatches( List<List> maybeMatches, List<Fact> trueFacts ) {
         if ( !trueFacts ) {
             return
         }
         for ( maybeMatch in maybeMatches ) {
-            AtomicReference current = maybeMatch[ 0 ]
+            AtomicReference<List> current = maybeMatch[ 0 ]
             List<Fact> maybeFacts = maybeMatch[ 1 ]
             int index = maybeMatch[ 2 ]
 
@@ -93,10 +93,10 @@ class Grolog {
         ensureListsWithOneItemAreLifted maybeMatches
     }
 
-    private static void ensureListsWithOneItemAreLifted( List maybeMatches ) {
+    private static void ensureListsWithOneItemAreLifted( List<List> maybeMatches ) {
         for ( maybeMatch in maybeMatches ) {
-            AtomicReference current = maybeMatch[ 0 ]
-            if ( current.get() instanceof List && current.get().size() == 1 ) {
+            AtomicReference<List> current = maybeMatch[ 0 ]
+            if ( current.get() && current.get().size() == 1 ) {
                 current.set( current.get()[ 0 ] )
             }
         }
