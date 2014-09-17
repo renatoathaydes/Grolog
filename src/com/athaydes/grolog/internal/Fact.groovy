@@ -1,7 +1,9 @@
 package com.athaydes.grolog.internal
 
+import com.athaydes.grolog.ConditionGrolog
 import com.athaydes.grolog.Grolog
 import groovy.transform.EqualsAndHashCode
+import groovy.transform.Immutable
 import groovy.transform.ToString
 
 @ToString( includePackage = false, includeFields = true,
@@ -11,18 +13,23 @@ class Fact {
 
     final String name
     final Object[] args
-    final Condition condition = new Condition()
+    final Condition condition
 
-    Fact( String name, args ) {
+    Fact( String name, args, Set<String> unboundedVars ) {
         this.name = name
         this.args = args
+        this.condition = new Condition( unboundedVars )
     }
 
 }
 
 class Condition {
 
-    private final Grolog grolog = new Grolog()
+    private final ConditionGrolog grolog
+
+    Condition( Set<String> unboundedVars ) {
+        this.grolog = new ConditionGrolog( unboundedVars )
+    }
 
     void iff( Closure clausesCallback ) {
         grolog.with clausesCallback
@@ -30,7 +37,7 @@ class Condition {
 
     boolean satisfiedBy( Grolog other ) {
         this.grolog.trueFacts().every { Fact fact ->
-            other.queryInternal( false, fact.name, fact.args )
+             other.queryInternal( false, fact.name, fact.args )
         }
     }
 
@@ -44,4 +51,10 @@ class Condition {
         }
     }
 
+}
+
+@Immutable
+@ToString(includePackage = false)
+class UnboundedVar {
+    String name
 }

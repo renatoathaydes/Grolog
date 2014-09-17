@@ -56,11 +56,13 @@ class GrologTest extends GroovyTestCase {
         }
 
         def johnsFather = new Var( null )
-        grolog.query( 'father', 'John', johnsFather )
+
+        assert grolog.query( 'father', 'John', johnsFather )
         assert johnsFather.get() == 'Paul'
 
         def marysFather = new Var( null )
-        grolog.query( 'father', 'Mary', marysFather )
+
+        assert grolog.query( 'father', 'Mary', marysFather )
         assert marysFather.get() == 'John'
     }
 
@@ -72,11 +74,13 @@ class GrologTest extends GroovyTestCase {
         }
 
         def paulsSon = new Var( null )
-        grolog.query( 'father', paulsSon, 'Paul' )
+
+        assert grolog.query( 'father', paulsSon, 'Paul' )
         assert paulsSon.get() == 'John'
 
         def childOfJohn = new Var( null )
-        grolog.query( 'father', childOfJohn, 'John' )
+
+        assert grolog.query( 'father', childOfJohn, 'John' )
         assert childOfJohn.get() == 'Mary'
     }
 
@@ -89,7 +93,8 @@ class GrologTest extends GroovyTestCase {
         }
 
         def richardsSon = new Var( null )
-        grolog.query( 'father', richardsSon, 'Richard' )
+
+        assert grolog.query( 'father', richardsSon, 'Richard' ) == false
         assert richardsSon.get() == null
     }
 
@@ -101,7 +106,8 @@ class GrologTest extends GroovyTestCase {
         }
 
         def richardsFather = new Var( null )
-        grolog.query( 'father', 'Richard', richardsFather )
+
+        assert grolog.query( 'father', 'Richard', richardsFather ) == false
         assert richardsFather.get() == null
     }
 
@@ -166,7 +172,25 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'planet', 'Moon' ) == false
     }
 
-    void testUnboundVariableRules() {
+    void test1ArgUnboundVariableRules() {
+        def grolog = new Grolog()
+
+        grolog.with {
+            married 'Renato'
+            married 'John'
+            happy( A ).iff { married( A ) }
+        }
+
+        assert grolog.query( 'married', 'Renato' ) == true
+        assert grolog.query( 'married', 'John' ) == true
+        assert grolog.query( 'happy', 'Renato' ) == true
+        assert grolog.query( 'happy', 'John' ) == true
+
+        assert grolog.query( 'married', 'Mary' ) == false
+        assert grolog.query( 'happy', 'Mary' ) == false
+    }
+
+    void test2ArgsUnboundVariableRules() {
         def grolog = new Grolog()
 
         grolog.with {

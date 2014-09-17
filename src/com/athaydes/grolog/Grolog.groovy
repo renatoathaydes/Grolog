@@ -1,23 +1,38 @@
 package com.athaydes.grolog
 
 import com.athaydes.grolog.internal.Fact
+import com.athaydes.grolog.internal.UnboundedVar
 import groovy.transform.PackageScope
 
 import java.util.concurrent.atomic.AtomicReference
 
 class Grolog {
 
-    private Map<String, List<Fact>> facts = [ : ]
+    private final Map<String, Set<Fact>> facts = [ : ]
+    protected final Set<UnboundedVar> unboundedVars
+
+    protected Grolog( Set<UnboundedVar> unboundedVars ) {
+        this.unboundedVars = unboundedVars
+    }
+
+    public Grolog() {
+        this( [ ] as Set<UnboundedVar> )
+    }
 
     def methodMissing( String name, args ) {
         println "Missing method $name, $args"
-        def statement = new Fact( name, args )
-        facts.get( name, [ ] ) << statement
-        statement.condition
+        def fact = new Fact( name, args, drain( unboundedVars ) )
+        facts.get( name, [ ] as Set ) << fact
+        fact.condition
     }
 
     def propertyMissing( String name ) {
         println "Missing prop: $name"
+        if ( name.toCharArray()[ 0 ].upperCase ) {
+            def var = new UnboundedVar( name )
+            unboundedVars << var
+            return var
+        }
         methodMissing( name, Collections.emptyList() )
     }
 
@@ -31,22 +46,17 @@ class Grolog {
     def queryInternal( boolean checkCondition, String q, args ) {
         def foundFacts = checkCondition ? trueFacts( q ) : facts[ q ]
 
-        if ( !args ) {
+        if ( !args || !foundFacts ) {
             if ( foundFacts && foundFacts.every { it.args.size() == 0 } ) {
                 return true
             }
             return foundFacts ? foundFacts*.args.flatten() : false
         }
 
-        if ( args.size() == 1 ) {
-            return args[ 0 ] in foundFacts*.args.flatten()
-        }
-
         match foundFacts, args, 0, [ ]
-        return null
     }
 
-    private final trueThings = { !it.condition || it.condition.satisfiedBy( this ) }
+    private final trueThings = { Fact f -> !f.condition || f.condition.satisfiedBy( this ) }
 
     Set<Fact> trueFacts( String name = null ) {
         if ( name ) {
@@ -56,14 +66,11 @@ class Grolog {
         }
     }
 
-    private static void match( Set<Fact> facts, Object[] args, int index,
-                               List maybeMatches ) {
+    private static match( Set<Fact> facts, Object[] args, int index,
+                          List maybeMatches ) {
         def candidateFacts = facts.findAll { it.args.size() >= index }
         if ( index >= args.size() ) {
-            if ( candidateFacts ) {
-                bindMatches maybeMatches, facts
-            }
-            return
+            return ( candidateFacts ? bindMatches( maybeMatches, facts ) : true )
         }
 
         def queryArg = args[ index ] instanceof AtomicReference
@@ -76,7 +83,9 @@ class Grolog {
         }
 
         if ( queryArg || matchingFacts ) {
-            match queryArg ? candidateFacts : matchingFacts, args, index + 1, maybeMatches
+            match( queryArg ? candidateFacts : matchingFacts, args, index + 1, maybeMatches )
+        } else {
+            false
         }
     }
 
@@ -84,9 +93,12 @@ class Grolog {
         facts.findAll { it.args[ index ] == args[ index ] }
     }
 
-    private static void bindMatches( List<List> maybeMatches, Set trueFacts ) {
+    private static bindMatches( List<List> maybeMatches, Set trueFacts ) {
         if ( !trueFacts ) {
-            return
+            return false
+        }
+        if ( !maybeMatches ) {
+            return true
         }
         for ( maybeMatch in maybeMatches ) {
             AtomicReference<List> current = maybeMatch[ 0 ]
@@ -102,6 +114,10 @@ class Grolog {
             }
         }
         ensureListsWithOneItemAreLifted maybeMatches
+        maybeMatches.every { maybeMatch ->
+            AtomicReference<List> current = maybeMatch[ 0 ]
+            current.get() != null
+        }
     }
 
     private static void ensureListsWithOneItemAreLifted( List<List> maybeMatches ) {
@@ -112,5 +128,39 @@ class Grolog {
             }
         }
     }
+
+    protected Set drain( Set set ) {
+        def copy = new LinkedHashSet( set )
+        set.clear()
+        copy
+    }
+
+}
+
+class ConditionGrolog extends Grolog {
+
+    ConditionGrolog( Set<UnboundedVar> unboundedVars ) {
+        super( unboundedVars.asImmutable() )
+    }
+
+    @Override
+    def methodMissing( String name, args ) {
+        super.methodMissing( name, args )
+        null
+    }
+
+    @Override
+    def propertyMissing( String name ) {
+        if ( name.toCharArray()[ 0 ].upperCase ) {
+            unboundedVars.find { it.name == name }
+        } else {
+            super.propertyMissing( name )
+        }
+    }
+
+    protected Set drain( Set set ) {
+        Collections.emptySet()
+    }
+
 
 }
