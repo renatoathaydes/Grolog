@@ -120,7 +120,8 @@ class GrologTest extends GroovyTestCase {
 
         def child = new Var( null )
         def father = new Var( null )
-        grolog.query( 'father', child, father )
+
+        assert grolog.query( 'father', child, father ) == true
         assert child.get() == [ 'John', 'Mary' ]
         assert father.get() == [ 'Paul', 'John' ]
     }

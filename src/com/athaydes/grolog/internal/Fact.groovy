@@ -6,6 +6,8 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.Immutable
 import groovy.transform.ToString
 
+import java.util.concurrent.atomic.AtomicReference
+
 @ToString( includePackage = false, includeFields = true,
         includes = [ 'name', 'args', 'condition' ] )
 @EqualsAndHashCode( includes = [ 'name', 'args' ] )
@@ -36,14 +38,24 @@ class Condition {
     }
 
     boolean satisfiedBy( Grolog other ) {
-        this.grolog.trueFacts().every { Fact fact ->
-             other.queryInternal( false, fact.name, fact.args )
-        }
+        def truths = this.grolog.maybeTrueFacts()
+        truths.any { Fact fact -> fact.args.any { it instanceof AtomicReference } } ||
+                truths.every { Fact fact ->
+                    other.queryInternal( false, fact.name, fact.args )
+                }
+    }
+
+    def unboundedVarResolves( Grolog other, Object[] queryArgs ) {
+        def truths = this.grolog.maybeTrueFacts()
+        truths.any { Fact fact -> fact.args.any { it instanceof AtomicReference } } ||
+                truths.every { Fact fact ->
+                    other.queryInternal( false, fact.name, queryArgs )
+                }
     }
 
     @Override
     String toString() {
-        def statements = grolog.trueFacts()
+        def statements = grolog.maybeTrueFacts()
         if ( statements ) {
             "Cond($statements)"
         } else {
@@ -54,7 +66,7 @@ class Condition {
 }
 
 @Immutable
-@ToString(includePackage = false)
+@ToString( includePackage = false )
 class UnboundedVar {
     String name
 }
