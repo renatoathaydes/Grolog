@@ -22,6 +22,10 @@ class Grolog {
         this( [ ] as Set<UnboundedVar> )
     }
 
+    void merge( Grolog other ) {
+        facts.putAll other.facts
+    }
+
     def methodMissing( String name, args ) {
         println "Missing method $name, $args"
         def fact = unboundedVars ? new UnboundedFact( name, args, drain( unboundedVars ) ) : new Fact( name, args )

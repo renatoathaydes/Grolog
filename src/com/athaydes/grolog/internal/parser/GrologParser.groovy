@@ -4,7 +4,7 @@ import com.athaydes.grolog.Grolog
 import org.apache.tools.ant.filters.StringInputStream
 import org.codehaus.groovy.control.CompilerConfiguration
 
-class GrologParser {
+class GrologParser implements Parser {
 
     Grolog from( InputStream input, String charset = 'utf8' ) {
         def config = new CompilerConfiguration()
@@ -12,7 +12,7 @@ class GrologParser {
 
         def engine = new GroovyShell( config )
         engine.evaluate( new SequenceInputStream(
-                input, new StringInputStream('\n_grolog') ).newReader( charset ) )
+                input, new StringInputStream( '\n_grolog' ) ).newReader( charset ) )
     }
 
 }
