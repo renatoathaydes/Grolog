@@ -1,10 +1,13 @@
 package com.athaydes.grolog
 
 import com.athaydes.grolog.internal.Fact
+import com.athaydes.grolog.internal.UnboundedFact
 import com.athaydes.grolog.internal.UnboundedVar
 import groovy.transform.PackageScope
 
 import java.util.concurrent.atomic.AtomicReference
+
+import static java.util.Collections.emptySet
 
 class Grolog {
 
@@ -21,7 +24,7 @@ class Grolog {
 
     def methodMissing( String name, args ) {
         println "Missing method $name, $args"
-        def fact = new Fact( name, args, drain( unboundedVars ) )
+        def fact = unboundedVars ? new UnboundedFact( name, args, drain( unboundedVars ) ) : new Fact( name, args )
         facts.get( name, [ ] as Set ) << fact
         fact.condition
     }
@@ -36,6 +39,58 @@ class Grolog {
         methodMissing( name, Collections.emptyList() )
     }
 
+    protected Fact trueThing( Fact fact, Object[] args, boolean resolveUnboundedAndConditionalFacts ) {
+        if ( !resolveUnboundedAndConditionalFacts && ( fact instanceof UnboundedFact || fact.condition.hasClauses() ) ) {
+            return null
+        }
+        def conditions = fact.condition.allClauses()
+        if ( !conditions ) {
+            return ( fact instanceof UnboundedFact ) ? null : fact
+        }
+
+        Map<String, Object> boundedArgs = ( fact instanceof UnboundedFact ) ? fact.boundedArgs( args ) : null
+        def conditionsSatisfied = conditions.every { Fact cond -> conditionSatisfied( cond, boundedArgs ) }
+
+        if ( conditionsSatisfied ) {
+            return boundedArgs ? new Fact( fact.name, resolvedArgs( fact.args, boundedArgs ) ) : fact
+        } else {
+            return null
+        }
+    }
+
+    protected boolean conditionSatisfied( Fact cond, Map<String, Object> boundedArgs ) {
+        Object[] actualArgs = boundedArgs ? resolvedArgs( cond.args, boundedArgs ) : cond.args
+        queryInternal( false, cond.name, actualArgs )
+    }
+
+    protected Fact maybeTrueThing( Object[] args, Fact f ) {
+        f.args.any { it instanceof AtomicReference } ? f : trueThing( f, args, true )
+    }
+
+    private Set<Fact> filterFacts( String name, Closure<Fact> filter ) {
+        if ( name ) {
+            facts.get( name, emptySet() ).findResults filter
+        } else {
+            facts.values().flatten().findResults filter
+        }
+    }
+
+    Set<Fact> maybeTrueFacts( String name = null, Object[] args = [ ] ) {
+        filterFacts( name ) { Fact fact ->
+            maybeTrueThing( args, fact )
+        }
+    }
+
+    Set<Fact> trueFacts( String name = null, Object[] args = [ ] ) {
+        filterFacts( name ) { Fact fact ->
+            trueThing( fact, args, false )
+        }
+    }
+
+    Set<Fact> allFacts() {
+        facts.values().flatten()
+    }
+
     def query( String q, Object... args ) {
         assert q, 'A query must be provided'
         println "Query $q ? $args --- Facts: $facts"
@@ -43,8 +98,8 @@ class Grolog {
     }
 
     @PackageScope
-    def queryInternal( boolean checkCondition, String q, args ) {
-        def foundFacts = checkCondition ? maybeTrueFacts( q ) : facts[ q ]
+    def queryInternal( boolean checkCondition, String q, Object[] args ) {
+        def foundFacts = checkCondition ? maybeTrueFacts( q, args ) : trueFacts( q, args )
 
         if ( !args || !foundFacts ) {
             if ( foundFacts && foundFacts.every { it.args.size() == 0 } ) {
@@ -56,17 +111,13 @@ class Grolog {
         match foundFacts, args, 0, [ ]
     }
 
-    boolean trueThing( Fact f ) { !f.condition || f.condition.satisfiedBy( this ) }
-
-    boolean nonDeterministicFact( Fact f ) { f.args.any { it instanceof UnboundedVar } }
-
-    boolean maybeTrueThing( Fact f ) { nonDeterministicFact( f ) || trueThing( f ) }
-
-    Set<Fact> maybeTrueFacts( String name = null ) {
-        if ( name ) {
-            ( facts[ name ]?.findAll( this.&maybeTrueThing ) ) ?: [ ]
-        } else {
-            facts.values().flatten().findAll this.&maybeTrueThing
+    protected Object[] resolvedArgs( Object[] args, Map<String, Object> boundedArgs ) {
+        args.collect { arg ->
+            if ( arg instanceof UnboundedVar ) {
+                boundedArgs[ arg.name ]
+            } else {
+                arg
+            }
         }
     }
 
@@ -74,7 +125,7 @@ class Grolog {
                    List maybeMatches ) {
         def candidateFacts = facts.findAll { it.args.size() >= index }
         if ( index >= args.size() ) {
-            return ( candidateFacts ? bindMatches( maybeMatches, candidateFacts, args ) : true )
+            return ( candidateFacts ? bindMatches( maybeMatches, candidateFacts ) : true )
         }
 
         def queryArg = args[ index ] instanceof AtomicReference
@@ -93,22 +144,21 @@ class Grolog {
         }
     }
 
-    private Set<Fact> factMatches( Set<Fact> facts, Object[] args, int index ) {
-        facts.findAll { it.args[ index ] instanceof UnboundedVar || it.args[ index ] == args[ index ] }
+    private Set<Fact> factMatches( Set<Fact> facts, Object[] args, int argIndex ) {
+        facts.findAll { it.args[ argIndex ] instanceof UnboundedVar || it.args[ argIndex ] == args[ argIndex ] }
     }
 
-    private bindMatches( List<List> maybeMatches, Set<Fact> trueFacts, Object[] args ) {
-        if ( !trueFacts ) {
+    private bindMatches( List<List> maybeMatches, Set<Fact> candidateFacts ) {
+        if ( !candidateFacts ) {
             return false
         }
-        if ( trueFacts.any { it.args.any { it instanceof UnboundedVar } } ) {
-            return resolveUnboundedArgs( trueFacts, args )
-        }
+
         if ( !maybeMatches ) {
             return true
         }
+
         for ( maybeMatch in maybeMatches ) {
-            maybeMatchQuery( maybeMatch, trueFacts )
+            maybeMatchQuery( maybeMatch, candidateFacts.findAll { trueThing( it, [ ], false ) } )
         }
 
         ensureListsWithOneItemAreLifted maybeMatches
@@ -129,13 +179,6 @@ class Grolog {
             current.set currentValue
         } else {
             current.get().addAll currentValue
-        }
-    }
-
-    private resolveUnboundedArgs( Set<Fact> trueFacts, Object[] queryArgs ) {
-        println "Unbounded case: $trueFacts"
-        trueFacts.every {
-            it.condition.unboundedVarResolves( this, queryArgs )
         }
     }
 
@@ -178,7 +221,7 @@ class ConditionGrolog extends Grolog {
     }
 
     protected Set drain( Set set ) {
-        Collections.emptySet()
+        emptySet()
     }
 
 

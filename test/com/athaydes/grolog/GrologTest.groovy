@@ -205,6 +205,7 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'married', 'John', 'Mary' ) == true
         assert grolog.query( 'married', 'Mary', 'John' ) == true
 
+        assert grolog.query( 'married', 'Mary', 'Renato' ) == false
         assert grolog.query( 'married', 'Renato', 'Mary' ) == false
         assert grolog.query( 'married', 'Renato', 'John' ) == false
     }

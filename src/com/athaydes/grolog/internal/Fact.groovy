@@ -1,12 +1,11 @@
 package com.athaydes.grolog.internal
 
 import com.athaydes.grolog.ConditionGrolog
-import com.athaydes.grolog.Grolog
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.Immutable
 import groovy.transform.ToString
 
-import java.util.concurrent.atomic.AtomicReference
+import static java.util.Collections.emptySet
 
 @ToString( includePackage = false, includeFields = true,
         includes = [ 'name', 'args', 'condition' ] )
@@ -17,10 +16,28 @@ class Fact {
     final Object[] args
     final Condition condition
 
-    Fact( String name, args, Set<String> unboundedVars ) {
+    Fact( String name, args, Condition condition = new Condition( emptySet() ) ) {
         this.name = name
         this.args = args
-        this.condition = new Condition( unboundedVars )
+        this.condition = condition
+    }
+
+}
+
+class UnboundedFact extends Fact {
+
+    UnboundedFact( String name, Object args, Set<String> unboundedVars ) {
+        super( name, args, new Condition( unboundedVars ) )
+    }
+
+    Map<String, Object> boundedArgs( Object[] queryArgs ) {
+        def boundedArgs = [ : ]
+        args.eachWithIndex { arg, int index ->
+            if ( arg instanceof UnboundedVar ) {
+                boundedArgs.put( arg.name, queryArgs ? queryArgs[ index ] : '_' )
+            }
+        }
+        boundedArgs
     }
 
 }
@@ -37,25 +54,17 @@ class Condition {
         grolog.with clausesCallback
     }
 
-    boolean satisfiedBy( Grolog other ) {
-        def truths = this.grolog.maybeTrueFacts()
-        truths.any { Fact fact -> fact.args.any { it instanceof AtomicReference } } ||
-                truths.every { Fact fact ->
-                    other.queryInternal( false, fact.name, fact.args )
-                }
+    boolean hasClauses() {
+        grolog.allFacts()
     }
 
-    def unboundedVarResolves( Grolog other, Object[] queryArgs ) {
-        def truths = this.grolog.maybeTrueFacts()
-        truths.any { Fact fact -> fact.args.any { it instanceof AtomicReference } } ||
-                truths.every { Fact fact ->
-                    other.queryInternal( false, fact.name, queryArgs )
-                }
+    Set<Fact> allClauses() {
+        grolog.allFacts()
     }
 
     @Override
     String toString() {
-        def statements = grolog.maybeTrueFacts()
+        def statements = grolog.allFacts()
         if ( statements ) {
             "Cond($statements)"
         } else {
