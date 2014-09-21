@@ -275,8 +275,28 @@ class GrologTest extends GroovyTestCase {
         def person2 = new Var( null )
 
         assert grolog.query( 'married', person1, person2 ) == true
-        assert person1.get() == ['Mary', 'Nat' ]
-        assert person2.get() == ['John', 'Renato' ]
+        assert person1.get() == [ 'Mary', 'Nat' ]
+        assert person2.get() == [ 'John', 'Renato' ]
+    }
+
+    void test3ArgsWithUnboundVariableRulesResolvingFirstArg() {
+        def grolog = new Grolog()
+
+        grolog.with {
+            author 'The story', 'John', 1994
+            author 'Book 10', 'Mary', 2014
+        }
+
+        def book = new Var( null )
+        assert grolog.query( 'author', book, 'John', new Var(null) ) == true
+        assert book.get() == 'The story'
+        book = new Var( null )
+        assert grolog.query( 'author', book, 'Mary', 2014 ) == true
+        assert book.get() == 'Book 10'
+
+        book = new Var( null )
+        assert grolog.query( 'author', book, 'John', 1988 ) == false // wrong year
+        assert book.get() == null
     }
 
 }
