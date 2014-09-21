@@ -23,7 +23,9 @@ class Grolog {
     }
 
     void merge( Grolog other ) {
-        facts.putAll other.facts
+        other.facts.each { name, fs ->
+            facts.get( name, [ ] as Set ).addAll fs
+        }
     }
 
     def methodMissing( String name, args ) {
