@@ -158,7 +158,7 @@ class Grolog {
         }
 
         for ( maybeMatch in maybeMatches ) {
-            maybeMatchQuery( maybeMatch, candidateFacts.findAll { trueThing( it, [ ], false ) } )
+            maybeMatchQuery( maybeMatch, candidateFacts.findAll { trueThing( it, [ ] as Object[], false ) } )
         }
 
         ensureListsWithOneItemAreLifted maybeMatches
@@ -174,6 +174,10 @@ class Grolog {
         int index = maybeMatch[ 2 ]
 
         def currentValue = maybeFacts.findAll { it in trueFacts }.collect { it.args[ index ] }
+
+        if ( currentValue.any { it instanceof AtomicReference } ) {
+            return
+        }
 
         if ( current.get() == null ) {
             current.set currentValue

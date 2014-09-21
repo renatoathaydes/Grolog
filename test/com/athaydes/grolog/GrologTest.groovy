@@ -210,4 +210,73 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'married', 'Renato', 'John' ) == false
     }
 
+    void test2ArgsUnboundVariableRulesResolvingFirstArg() {
+        def grolog = new Grolog()
+
+        grolog.with {
+            married 'Renato', 'Nat'
+            married 'John', 'Mary'
+            married( A, B ).iff { married( B, A ) }
+        }
+
+        def person = new Var( null )
+
+        assert grolog.query( 'married', person, 'Nat' ) == true
+        assert person.get() == 'Renato'
+        person = new Var( null )
+        assert grolog.query( 'married', person, 'Renato' ) == true
+        assert person.get() == 'Nat'
+
+        person = new Var( null )
+        assert grolog.query( 'married', person, 'Mary' ) == true
+        assert person.get() == 'John'
+        person = new Var( null )
+        assert grolog.query( 'married', person, 'John' ) == true
+        assert person.get() == 'Mary'
+    }
+
+
+    void test2ArgsUnboundVariableRulesResolvingSecondArg() {
+        def grolog = new Grolog()
+
+        grolog.with {
+            married 'Renato', 'Nat'
+            married 'John', 'Mary'
+            married( A, B ).iff { married( B, A ) }
+        }
+
+        def person = new Var( null )
+
+        assert grolog.query( 'married', 'Nat', person ) == true
+        assert person.get() == 'Renato'
+        person = new Var( null )
+        assert grolog.query( 'married', 'Renato', person ) == true
+        assert person.get() == 'Nat'
+
+        person = new Var( null )
+        assert grolog.query( 'married', 'Mary', person ) == true
+        assert person.get() == 'John'
+        person = new Var( null )
+        assert grolog.query( 'married', 'John', person ) == true
+        assert person.get() == 'Mary'
+    }
+
+
+    void test2ArgsUnboundVariableRulesResolvingBothArgs() {
+        def grolog = new Grolog()
+
+        grolog.with {
+            married 'Renato', 'Nat'
+            married 'John', 'Mary'
+            married( A, B ).iff { married( B, A ) }
+        }
+
+        def person1 = new Var( null )
+        def person2 = new Var( null )
+
+        assert grolog.query( 'married', person1, person2 ) == true
+        assert person1.get() == ['Mary', 'Nat' ]
+        assert person2.get() == ['John', 'Renato' ]
+    }
+
 }
