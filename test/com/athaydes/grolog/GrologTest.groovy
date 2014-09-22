@@ -30,6 +30,17 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'undecided' ) == false
     }
 
+    void testSimpleNoArgsFactsClashWithPropositions() {
+        def grolog = new Grolog()
+
+        shouldFail( ArityException.class ) {
+            grolog.with {
+                man;
+                man 'John'
+            }
+        }
+    }
+
     void testSimple1ArgFacts() {
         def grolog = new Grolog()
         grolog.with {
@@ -288,7 +299,7 @@ class GrologTest extends GroovyTestCase {
         }
 
         def book = new Var( null )
-        assert grolog.query( 'author', book, 'John', new Var(null) ) == true
+        assert grolog.query( 'author', book, 'John', new Var( null ) ) == true
         assert book.get() == 'The story'
         book = new Var( null )
         assert grolog.query( 'author', book, 'Mary', 2014 ) == true

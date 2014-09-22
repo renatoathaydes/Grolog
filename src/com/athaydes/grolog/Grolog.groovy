@@ -22,16 +22,22 @@ class Grolog {
         this( [ ] as Set<UnboundedVar> )
     }
 
+    void clear() {
+        facts.clear()
+        if ( unboundedVars )
+            unboundedVars.clear()
+    }
+
     void merge( Grolog other ) {
         other.facts.each { name, fs ->
-            facts.get( name, [ ] as Set ).addAll fs
+            addFact fs
         }
     }
 
     def methodMissing( String name, args ) {
         println "Missing method $name, $args"
         def fact = unboundedVars ? new UnboundedFact( name, args, drain( unboundedVars ) ) : new Fact( name, args )
-        facts.get( name, [ ] as Set ) << fact
+        addFact fact
         fact.condition
     }
 
@@ -43,6 +49,26 @@ class Grolog {
             return var
         }
         methodMissing( name, Collections.emptyList() )
+    }
+
+    protected addFact( fact ) {
+        switch ( fact ) {
+            case Fact:
+                def allFacts = facts.get( fact.name )
+                if ( allFacts && allFacts.first().args.size() != fact.args.size() ) {
+                    throw new ArityException( fact.name, allFacts.first().args.size() )
+                } else if ( allFacts == null ) {
+                    facts.put( fact.name, allFacts = [ ] as Set )
+                }
+                allFacts << fact
+                break
+            case Collection:
+                for ( f in fact ) {
+                    addFact f
+                }
+                break
+            default: throw new RuntimeException( "Trying to add unexpected Fact type ${fact.class.name}" )
+        }
     }
 
     protected Fact trueThing( Fact fact, Object[] args, boolean resolveUnboundedAndConditionalFacts ) {
