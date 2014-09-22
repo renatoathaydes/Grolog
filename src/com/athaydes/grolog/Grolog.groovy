@@ -75,7 +75,7 @@ class Grolog {
 
     private Set<Fact> filterFacts( String name, Closure<Fact> filter ) {
         if ( name ) {
-            facts.get( name, emptySet() ).findResults filter
+            facts.get( name )?.findResults filter
         } else {
             facts.values().flatten().findResults filter
         }
