@@ -65,14 +65,18 @@ class GrologRunner {
 
     static void respondToQuery( Grolog grolog, parts ) {
         def respondToTruthQuery = {
-            println grolog.query( parts[ 0 ], parts[ 1 ] )
+            def result = grolog.query( parts[ 0 ], parts[ 1 ] )
+            println result
+            result
         }
         def respondToVarQuery = {
             def vars = parts[ 1 ].findAll { it instanceof AtomicReference }
             def varNames = vars.collect { it.get() } as LinkedList
-            respondToTruthQuery()
-            vars.each { AtomicReference var ->
-                println "${varNames.pop()} = $var"
+            def truth = respondToTruthQuery()
+            if ( truth ) {
+                vars.each { AtomicReference var ->
+                    println "${varNames.pop()} = $var"
+                }
             }
         }
 
