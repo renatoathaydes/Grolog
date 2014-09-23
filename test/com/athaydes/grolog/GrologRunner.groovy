@@ -3,6 +3,7 @@ package com.athaydes.grolog
 import com.athaydes.grolog.internal.parser.GrologParser
 import org.apache.tools.ant.filters.StringInputStream
 
+import java.util.concurrent.atomic.AtomicReference
 import java.util.regex.Matcher
 
 class GrologRunner {
@@ -39,10 +40,7 @@ class GrologRunner {
                         break
                     default:
                         if ( queryMode ) {
-                            def parts = parser.parseQuery( input )
-                            println( ( isQuery( parts ) ) ?
-                                    grolog.query( parts[ 0 ], parts[ 1 ] ) :
-                                    "Enter '!help' for usage." )
+                            respondToQuery grolog, parser.parseQuery( input )
                         } else {
                             grolog.merge( parser.parsePredicates( new StringInputStream( input ) ) )
                         }
@@ -56,9 +54,38 @@ class GrologRunner {
 
     }
 
-    static boolean isQuery( queryResult ) {
-        queryResult && queryResult instanceof List && queryResult.size() == 2 &&
-                queryResult[ 0 ] instanceof String && queryResult[ 1 ] instanceof Object[]
+    static String queryType( parts ) {
+        if ( parts && parts instanceof List && parts.size() == 2 &&
+                parts[ 0 ] instanceof String && parts[ 1 ] instanceof Object[] ) {
+            return parts[ 1 ].any { it instanceof AtomicReference } ? 'var' : 'truth'
+        } else {
+            return 'none'
+        }
+    }
+
+    static void respondToQuery( Grolog grolog, parts ) {
+        def respondToTruthQuery = {
+            println grolog.query( parts[ 0 ], parts[ 1 ] )
+        }
+        def respondToVarQuery = {
+            def vars = parts[ 1 ].findAll { it instanceof AtomicReference }
+            def varNames = vars.collect { it.get() } as LinkedList
+            respondToTruthQuery()
+            vars.each { AtomicReference var ->
+                println "${varNames.pop()} = $var"
+            }
+        }
+
+        switch ( queryType( parts ) ) {
+            case 'truth':
+                respondToTruthQuery()
+                break
+            case 'var':
+                respondToVarQuery()
+                break
+            default:
+                println "Enter '!help' for usage."
+        }
     }
 
     static void runCmd( String cmd, Grolog grolog ) {

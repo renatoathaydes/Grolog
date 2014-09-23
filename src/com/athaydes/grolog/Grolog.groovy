@@ -126,6 +126,7 @@ class Grolog {
     def query( String q, Object... args ) {
         println "Query $q ? $args --- Facts: $facts"
         verifyValidQuery q, args
+        ensureAllVarsEmpty args
         queryInternal( true, q, args )
     }
 
@@ -135,6 +136,10 @@ class Grolog {
         if ( sampleFacts && args && args.size() != sampleFacts.first().args.size() ) {
             throw new ArityException( q, sampleFacts.first().args.size() )
         }
+    }
+
+    private void ensureAllVarsEmpty( Object[] args ) {
+        args.findAll { it instanceof AtomicReference }.each { it.set( null ) }
     }
 
     @PackageScope

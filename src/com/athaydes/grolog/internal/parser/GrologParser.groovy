@@ -4,6 +4,8 @@ import com.athaydes.grolog.Grolog
 import org.apache.tools.ant.filters.StringInputStream
 import org.codehaus.groovy.control.CompilerConfiguration
 
+import java.util.concurrent.atomic.AtomicReference
+
 class GrologParser implements Parser {
 
     private final GroovyShell predicateShell
@@ -26,10 +28,15 @@ class GrologParser implements Parser {
 
     /**
      * @param query
-     * @return [predicate, args] if a query was actually entered.
+     * @return [predicate , args] if a query was actually entered.
      */
     def parseQuery( String query ) {
-        queryShell.evaluate query
+        def result = queryShell.evaluate( query ) ?: ''
+        if ( result instanceof AtomicReference && result.get() instanceof String ) {
+            [ result.get(), [ ] as Object[] ]
+        } else {
+            result
+        }
     }
 
 }
@@ -55,7 +62,7 @@ abstract class GrologQueryScriptBase extends Script {
     }
 
     def propertyMissing( String name ) {
-        methodMissing( name, [ ] as Object[] )
+        new AtomicReference( name )
     }
 
 }
