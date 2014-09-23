@@ -60,12 +60,16 @@ class GrologTest extends GroovyTestCase {
         grolog.with {
             water;
             man 'John'
+            married 'John', 'Mary'
         }
         shouldFail( ArityException.class ) {
             grolog.query( 'water', 1 )
         }
         shouldFail( ArityException.class ) {
             grolog.query( 'man', 'John', 1 )
+        }
+        shouldFail( ArityException.class ) {
+            grolog.query( 'married', 'John' )
         }
     }
 
