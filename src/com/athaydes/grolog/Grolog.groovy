@@ -124,9 +124,17 @@ class Grolog {
     }
 
     def query( String q, Object... args ) {
-        assert q, 'A query must be provided'
         println "Query $q ? $args --- Facts: $facts"
+        verifyValidQuery q, args
         queryInternal( true, q, args )
+    }
+
+    private void verifyValidQuery( String q, Object[] args ) {
+        assert q, 'A query must be provided'
+        def sampleFacts = facts[ q ]
+        if ( sampleFacts && args.size() > sampleFacts.first().args.size() ) {
+            throw new ArityException( q, sampleFacts.first().args.size() )
+        }
     }
 
     @PackageScope
