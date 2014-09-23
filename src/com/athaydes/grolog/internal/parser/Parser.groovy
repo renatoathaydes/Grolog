@@ -4,8 +4,10 @@ import com.athaydes.grolog.Grolog
 
 interface Parser {
 
-    Grolog from( InputStream input )
+    Grolog parsePredicates( InputStream input )
 
-    Grolog from( InputStream input, String charset )
+    Grolog parsePredicates( InputStream input, String charset )
+
+    def parseQuery( String query )
 
 }

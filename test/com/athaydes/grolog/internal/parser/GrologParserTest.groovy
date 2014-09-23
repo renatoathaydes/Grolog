@@ -13,11 +13,21 @@ class GrologParserTest extends GroovyTestCase {
             person 'Renato'
             worker 'Renato', 'Engineer'
             """ )
-        def grolog = new GrologParser().from( input )
+        def grolog = new GrologParser().parsePredicates( input )
         assert grolog.query( 'water' )
         assert grolog.query( 'person', 'Renato' )
         assert grolog.query( 'worker', 'Renato' )
         assert grolog.query( 'whatever' ) == false
+    }
+
+    void testGrologQuery() {
+        def parser = new GrologParser()
+        parser.parseQuery( 'hello' ) == [ 'hello', [ ] ]
+        parser.parseQuery( 'hello();' ) == [ 'hello', [ ] ]
+        parser.parseQuery( 'hello "world"' ) == [ 'hello', [ 'world' ] ]
+        parser.parseQuery( 'hello 1, 2, 3' ) == ['hello', [1, 2, 3]]
+        parser.parseQuery( '' ) == ''
+        parser.parseQuery( '10' ) == 10
     }
 
 }

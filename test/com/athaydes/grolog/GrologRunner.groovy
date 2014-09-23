@@ -39,12 +39,12 @@ class GrologRunner {
                         break
                     default:
                         if ( queryMode ) {
-                            def parts = input.split( /[(\,;\.\s)]/ ).collect { it?.trim() }.findAll { it }
-                            println parts ?
-                                    grolog.query( parts.first(), *parts.tail() ) :
-                                    "You must enter a query or command. Enter '!help' for usage."
+                            def parts = parser.parseQuery( input )
+                            println( ( isQuery( parts ) ) ?
+                                    grolog.query( parts[ 0 ], parts[ 1 ] ) :
+                                    "Enter '!help' for usage." )
                         } else {
-                            grolog.merge( parser.from( new StringInputStream( input ) ) )
+                            grolog.merge( parser.parsePredicates( new StringInputStream( input ) ) )
                         }
 
                 }
@@ -54,6 +54,11 @@ class GrologRunner {
             print( queryMode ? '?- ' : '!- ' )
         }
 
+    }
+
+    static boolean isQuery( queryResult ) {
+        queryResult && queryResult instanceof List && queryResult.size() == 2 &&
+                queryResult[ 0 ] instanceof String && queryResult[ 1 ] instanceof Object[]
     }
 
     static void runCmd( String cmd, Grolog grolog ) {

@@ -6,13 +6,30 @@ import org.codehaus.groovy.control.CompilerConfiguration
 
 class GrologParser implements Parser {
 
-    Grolog from( InputStream input, String charset = 'utf8' ) {
-        def config = new CompilerConfiguration()
-        config.scriptBaseClass = GrologScriptBase.class.name
+    private final GroovyShell predicateShell
+    private final GroovyShell queryShell
 
-        def engine = new GroovyShell( config )
-        engine.evaluate( new SequenceInputStream(
+    GrologParser() {
+        def grologPredicatesConfig = new CompilerConfiguration()
+        grologPredicatesConfig.scriptBaseClass = GrologScriptBase.class.name
+        predicateShell = new GroovyShell( grologPredicatesConfig )
+
+        def grologQueriesConfig = new CompilerConfiguration()
+        grologQueriesConfig.scriptBaseClass = GrologQueryScriptBase.class.name
+        queryShell = new GroovyShell( grologQueriesConfig )
+    }
+
+    Grolog parsePredicates( InputStream input, String charset = 'utf8' ) {
+        predicateShell.evaluate( new SequenceInputStream(
                 input, new StringInputStream( '\n_grolog' ) ).newReader( charset ) )
+    }
+
+    /**
+     * @param query
+     * @return [predicate, args] if a query was actually entered.
+     */
+    def parseQuery( String query ) {
+        queryShell.evaluate query
     }
 
 }
@@ -27,6 +44,18 @@ abstract class GrologScriptBase extends Script {
 
     def propertyMissing( String name ) {
         _grolog.propertyMissing( name )
+    }
+
+}
+
+abstract class GrologQueryScriptBase extends Script {
+
+    def methodMissing( String name, def args ) {
+        [ name, args ]
+    }
+
+    def propertyMissing( String name ) {
+        methodMissing( name, [ ] as Object[] )
     }
 
 }
