@@ -8,7 +8,7 @@ import java.util.regex.Matcher
 
 class GrologRunner {
 
-    static final USAGE = """|************ Grolog ************
+    static final USAGE = """|******************** Grolog ********************
                             |Type '!' to add predicates
                             |     '?' to enter queries
                             |
