@@ -7,9 +7,8 @@ import groovy.transform.ToString
 
 import static java.util.Collections.emptySet
 
-@ToString( includePackage = false, includeFields = true,
-        includes = [ 'name', 'args', 'condition' ] )
-@EqualsAndHashCode( includes = [ 'name', 'args' ] )
+@ToString( includePackage = false, includeFields = true )
+@EqualsAndHashCode
 class Fact {
 
     final String name
@@ -60,6 +59,16 @@ class Condition {
 
     Set<Fact> allClauses() {
         grolog.allFacts()
+    }
+
+    @Override
+    boolean equals( other ) {
+        other instanceof Condition && this.allClauses() == other.allClauses()
+    }
+
+    @Override
+    int hashCode() {
+        allClauses().hashCode()
     }
 
     @Override
