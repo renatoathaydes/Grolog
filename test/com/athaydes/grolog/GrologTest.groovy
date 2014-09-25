@@ -30,49 +30,6 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'undecided' ) == false
     }
 
-    void testSimpleNoArgsFactsClashWithPropositions() {
-        def grolog = new Grolog()
-
-        shouldFail( ArityException.class ) {
-            grolog.with {
-                man;
-                man 'John'
-            }
-        }
-
-        shouldFail( ArityException.class ) {
-            grolog.with {
-                woman 'Mary';
-                woman;
-            }
-        }
-
-        shouldFail( ArityException.class ) {
-            grolog.with {
-                car 'Ford', 'Fiesta', 2014;
-                car 'BMW', 'M6';
-            }
-        }
-    }
-
-    void testQueryWithWrongNumberOfArgsProducesError() {
-        def grolog = new Grolog()
-        grolog.with {
-            water;
-            man 'John'
-            married 'John', 'Mary'
-        }
-        shouldFail( ArityException.class ) {
-            grolog.query( 'water', 1 )
-        }
-        shouldFail( ArityException.class ) {
-            grolog.query( 'man', 'John', 1 )
-        }
-        shouldFail( ArityException.class ) {
-            grolog.query( 'married', 'John' )
-        }
-    }
-
     void testSimple1ArgFacts() {
         def grolog = new Grolog()
         grolog.with {
@@ -126,7 +83,6 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'father', childOfJohn, 'John' )
         assert childOfJohn.get() == 'Mary'
     }
-
 
     void testSimple2ArgsFactsNoMatchFirstArg() {
         def grolog = new Grolog()
@@ -279,7 +235,6 @@ class GrologTest extends GroovyTestCase {
         assert person.get() == 'Mary'
     }
 
-
     void test2ArgsUnboundVariableRulesResolvingSecondArg() {
         def grolog = new Grolog()
 
@@ -304,7 +259,6 @@ class GrologTest extends GroovyTestCase {
         assert grolog.query( 'married', 'John', person ) == true
         assert person.get() == 'Mary'
     }
-
 
     void test2ArgsUnboundVariableRulesResolvingBothArgs() {
         def grolog = new Grolog()
@@ -341,6 +295,34 @@ class GrologTest extends GroovyTestCase {
         book = new Var( null )
         assert grolog.query( 'author', book, 'John', 1988 ) == false // wrong year
         assert book.get() == null
+    }
+
+    void testSimpleUnification() {
+        def grolog = new Grolog()
+
+        grolog.with {
+            married 'Renato'
+            married 'John'
+            happy( A ).iff { married( A ) }
+        }
+
+        assert grolog.query( 'happy' ) == [ 'Renato', 'John' ]
+    }
+
+    void testUseOfIntermediateUnboundVariableInCondition() {
+        def grolog = new Grolog()
+
+        grolog.with {
+            loves 'Joe', 'Julia'
+            loves 'Peter', 'Julia'
+            loves 'Julia', 'Joe'
+            jealous( A, B ).iff { loves( A, C ); loves( B, C ) }
+        }
+
+        assert grolog.query( 'jealous', 'Joe', 'Peter' ) == true
+        assert grolog.query( 'jealous', 'Joe', 'Julia' ) == false
+        assert grolog.query( 'jealous', 'Julia', 'Joe' ) == false
+        assert grolog.query( 'jealous', 'Mark', 'Joe' ) == false
     }
 
 }
