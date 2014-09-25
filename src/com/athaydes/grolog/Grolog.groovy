@@ -14,8 +14,11 @@ class Grolog {
     private final Map<String, Set<Fact>> facts = [ : ]
     protected final Set<UnboundedVar> unboundedVars
 
+    protected final Inserter inserter
+
     protected Grolog( Set<UnboundedVar> unboundedVars ) {
         this.unboundedVars = unboundedVars
+        this.inserter = new Inserter( facts, unboundedVars )
     }
 
     public Grolog() {
@@ -36,9 +39,7 @@ class Grolog {
 
     def methodMissing( String name, args ) {
         println "Missing method $name, $args"
-        def fact = unboundedVars ? new UnboundedFact( name, args, drain( unboundedVars ) ) : new Fact( name, args )
-        addFact fact
-        fact.condition
+        inserter.addFact(name, args as Object[]).condition
     }
 
     def propertyMissing( String name ) {
@@ -49,26 +50,6 @@ class Grolog {
             return var
         }
         methodMissing( name, Collections.emptyList() )
-    }
-
-    protected addFact( fact ) {
-        switch ( fact ) {
-            case Fact:
-                def allFacts = facts.get( fact.name )
-                if ( allFacts && allFacts.first().args.size() != fact.args.size() ) {
-                    throw new ArityException( fact.name, allFacts.first().args.size() )
-                } else if ( allFacts == null ) {
-                    facts.put( fact.name, allFacts = [ ] as Set )
-                }
-                allFacts << fact
-                break
-            case Collection:
-                for ( f in fact ) {
-                    addFact f
-                }
-                break
-            default: throw new RuntimeException( "Trying to add unexpected Fact type ${fact.class.name}" )
-        }
     }
 
     protected Fact trueThing( Fact fact, Object[] args, boolean resolveUnboundedAndConditionalFacts ) {
@@ -240,18 +221,12 @@ class Grolog {
         }
     }
 
-    protected Set drain( Set set ) {
-        def copy = new LinkedHashSet( set )
-        set.clear()
-        copy
-    }
-
 }
 
 class ConditionGrolog extends Grolog {
 
     ConditionGrolog( Set<UnboundedVar> unboundedVars ) {
-        super( unboundedVars.asImmutable() )
+        super( unboundedVars )
     }
 
     @Override
@@ -268,10 +243,5 @@ class ConditionGrolog extends Grolog {
             super.propertyMissing( name )
         }
     }
-
-    protected Set drain( Set set ) {
-        emptySet()
-    }
-
 
 }
