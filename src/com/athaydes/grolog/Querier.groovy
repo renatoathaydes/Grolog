@@ -86,7 +86,6 @@ class Querier {
         args.findAll { it instanceof AtomicReference }.each { it.set( null ) }
     }
 
-    @PackageScope
     def queryInternal( boolean checkCondition, String q, Object[] args ) {
         def foundFacts = checkCondition ? maybeTrueFacts( q, args ) : trueFacts( q, args )
 
@@ -158,9 +157,9 @@ class Querier {
     }
 
     private void maybeMatchQuery( List maybeMatch, Set<Fact> trueFacts ) {
-        AtomicReference<List> current = maybeMatch[ 0 ]
-        Set<Fact> maybeFacts = maybeMatch[ 1 ]
-        int index = maybeMatch[ 2 ]
+        def current = maybeMatch[ 0 ] as AtomicReference<List>
+        def maybeFacts = maybeMatch[ 1 ] as Set<Fact>
+        def index = maybeMatch[ 2 ] as int
 
         def currentValue = maybeFacts.findAll { it in trueFacts }.collect { it.args[ index ] }
 
@@ -178,8 +177,8 @@ class Querier {
     private void ensureListsWithOneItemAreLifted( List<List> maybeMatches ) {
         for ( maybeMatch in maybeMatches ) {
             def current = maybeMatch[ 0 ]
-            if ( current instanceof AtomicReference<List> && current.get() && current.get().size() == 1 ) {
-                current.set( current.get()[ 0 ] )
+            if ( current instanceof AtomicReference && current.get() && current.get().size() == 1 ) {
+                current.set( ( current.get() as List )[ 0 ] )
             }
         }
     }

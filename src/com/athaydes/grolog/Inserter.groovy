@@ -16,12 +16,31 @@ class Inserter {
         this.unboundedVars = unboundedVars
     }
 
+    void clear() {
+        facts.clear()
+        unboundedVars.clear()
+    }
+
+    def addVar( String name ) {
+        if ( name.toCharArray()[ 0 ].upperCase ) {
+            def var = new UnboundedVar( name )
+            unboundedVars << var
+            return var
+        }
+        addFact( name, Collections.emptyList() as Object[] )
+    }
+
     protected Fact addFact( String name, Object[] args ) {
         def fact = unboundedVars ? new UnboundedFact( name, args, drain( unboundedVars ) ) : new Fact( name, args )
         addFact fact
     }
 
-    protected addFact( fact ) {
+    /**
+     * Adds a single Fact or all Facts in a given Collection of Facts
+     * @param fact Fact or Collection<Fact>
+     * @return fact given
+     */
+    def addFact( fact ) {
         switch ( fact ) {
             case Fact:
                 def allFacts = facts.get( fact.name )
