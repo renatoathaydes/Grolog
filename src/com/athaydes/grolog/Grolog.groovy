@@ -1,6 +1,7 @@
 package com.athaydes.grolog
 
 import com.athaydes.grolog.internal.Fact
+import com.athaydes.grolog.internal.UnboundedFact
 import com.athaydes.grolog.internal.UnboundedVar
 
 class Grolog {
@@ -45,12 +46,30 @@ class Grolog {
         querier.query q, args
     }
 
+    def with( Closure config ) {
+        def result = super.with config
+        verify()
+        result
+    }
+
+    protected void verify() {
+        for ( fact in querier.allFacts() ) {
+            if ( fact instanceof UnboundedFact && !fact.condition.hasClauses() ) {
+                throw new InvalidDeclaration( "Invalid Fact (unbounded without clause): $fact" )
+            }
+        }
+    }
+
 }
 
 class ConditionGrolog extends Grolog {
 
     ConditionGrolog( Set<UnboundedVar> unboundedVars ) {
         super( unboundedVars )
+    }
+
+    protected void verify() {
+        // no verification for conditions!
     }
 
 }

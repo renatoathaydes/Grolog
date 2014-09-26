@@ -7,3 +7,11 @@ class ArityException extends RuntimeException {
     }
 
 }
+
+class InvalidDeclaration extends RuntimeException {
+
+    InvalidDeclaration(String message) {
+        super(message)
+    }
+
+}

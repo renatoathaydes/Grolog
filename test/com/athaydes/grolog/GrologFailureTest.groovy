@@ -48,5 +48,20 @@ class GrologFailureTest extends GroovyTestCase {
         }
     }
 
+    void testUnboundedFactsWithoutConditionAreNotAccepted() {
+        def grolog = new Grolog()
+
+        shouldFail( InvalidDeclaration ) {
+            grolog.with {
+                something A
+            }
+        }
+        shouldFail( InvalidDeclaration ) {
+            grolog.with {
+                whatever A, B
+            }
+        }
+    }
+
 }
 
