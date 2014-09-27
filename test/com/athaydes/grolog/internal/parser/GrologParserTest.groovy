@@ -1,5 +1,6 @@
 package com.athaydes.grolog.internal.parser
 
+import com.athaydes.grolog.Var
 import org.apache.tools.ant.filters.StringInputStream
 
 import java.util.concurrent.atomic.AtomicReference
@@ -16,10 +17,10 @@ class GrologParserTest extends GroovyTestCase {
             worker 'Renato', 'Engineer'
             """ )
         def grolog = new GrologParser().parsePredicates( input )
-        assert grolog.query( 'water' )
-        assert grolog.query( 'person', 'Renato' )
-        assert grolog.query( 'worker', 'Renato', new AtomicReference() )
-        assert grolog.query( 'whatever' ) == false
+        assert grolog.query( 'water' ).exists
+        assert grolog.query( 'person', 'Renato' ).exists
+        assert grolog.query( 'worker', 'Renato', new Var() ).exists
+        assert !grolog.query( 'whatever' ).exists
     }
 
     void testGrologQuery() {

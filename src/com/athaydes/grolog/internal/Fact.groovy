@@ -15,7 +15,7 @@ class Fact {
     final Object[] args
     final Condition condition
 
-    Fact( String name, args, Condition condition = new Condition( emptySet() ) ) {
+    Fact( String name, Object[] args, Condition condition = new Condition( emptySet() ) ) {
         this.name = name
         this.args = args
         this.condition = condition
@@ -25,18 +25,8 @@ class Fact {
 
 class UnboundedFact extends Fact {
 
-    UnboundedFact( String name, Object args, Set<String> unboundedVars ) {
+    UnboundedFact( String name, Object[] args, Set<UnboundedVar> unboundedVars ) {
         super( name, args, new Condition( unboundedVars ) )
-    }
-
-    Map<String, Object> boundedArgs( Object[] queryArgs ) {
-        def boundedArgs = [ : ]
-        args.eachWithIndex { arg, int index ->
-            if ( arg instanceof UnboundedVar ) {
-                boundedArgs.put( arg.name, queryArgs ? queryArgs[ index ] : '_' )
-            }
-        }
-        boundedArgs
     }
 
 }
@@ -45,7 +35,7 @@ class Condition {
 
     private final ConditionGrolog grolog
 
-    Condition( Set<String> unboundedVars ) {
+    Condition( Set<UnboundedVar> unboundedVars ) {
         this.grolog = new ConditionGrolog( unboundedVars )
     }
 

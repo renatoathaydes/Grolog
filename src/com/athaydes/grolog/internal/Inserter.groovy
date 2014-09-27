@@ -1,11 +1,7 @@
-package com.athaydes.grolog
+package com.athaydes.grolog.internal
 
-import com.athaydes.grolog.internal.Fact
-import com.athaydes.grolog.internal.UnboundedFact
-import com.athaydes.grolog.internal.UnboundedVar
-import groovy.transform.PackageScope
+import com.athaydes.grolog.ArityException
 
-@PackageScope
 class Inserter {
 
     private final Map<String, Set<Fact>> facts
@@ -30,7 +26,7 @@ class Inserter {
         addFact( name, Collections.emptyList() as Object[] )
     }
 
-    protected Fact addFact( String name, Object[] args ) {
+    Fact addFact( String name, Object[] args ) {
         def fact = unboundedVars ? new UnboundedFact( name, args, drain( unboundedVars ) ) : new Fact( name, args )
         addFact fact
     }
@@ -43,6 +39,7 @@ class Inserter {
     def addFact( fact ) {
         switch ( fact ) {
             case Fact:
+                fact = fact as Fact // no warnings
                 def allFacts = facts.get( fact.name )
                 if ( allFacts && allFacts.first().args.size() != fact.args.size() ) {
                     throw new ArityException( fact.name, allFacts.first().args.size() )

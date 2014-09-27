@@ -1,8 +1,6 @@
 package com.athaydes.grolog
 
-import com.athaydes.grolog.internal.Fact
-import com.athaydes.grolog.internal.UnboundedFact
-import com.athaydes.grolog.internal.UnboundedVar
+import com.athaydes.grolog.internal.*
 
 class Grolog {
 
@@ -12,11 +10,15 @@ class Grolog {
     protected Grolog( Set<UnboundedVar> unboundedVars ) {
         def facts = [ : ]
         this.inserter = new Inserter( facts, unboundedVars )
-        this.querier = new Querier( facts )
+        this.querier = createQuerier( facts )
     }
 
     public Grolog() {
         this( [ ] as Set<UnboundedVar> )
+    }
+
+    protected createQuerier( Map facts ) {
+        new Querier( facts )
     }
 
     void clear() {
@@ -41,9 +43,14 @@ class Grolog {
         querier.allFacts()
     }
 
-    def query( String q, Object... args ) {
+    QueryResult query( String q, Object... args ) {
         println "Query $q ? $args --- Facts: ${querier.allFacts()}"
-        querier.query q, args
+        def result = querier.query q, args
+        switch ( result ) {
+            case Boolean: return QueryResult.TrueFalse( result )
+            case Iterable: return QueryResult.MultipleBindings( result )
+            case String: return QueryResult.Error( result )
+        }
     }
 
     def with( Closure config ) {
@@ -68,6 +75,12 @@ class ConditionGrolog extends Grolog {
         super( unboundedVars )
     }
 
+    @Override
+    protected createQuerier( Map facts ) {
+        new ConditionQuerier( facts )
+    }
+
+    @Override
     protected void verify() {
         // no verification for conditions!
     }
