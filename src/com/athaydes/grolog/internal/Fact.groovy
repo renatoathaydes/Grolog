@@ -5,8 +5,6 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.Immutable
 import groovy.transform.ToString
 
-import static java.util.Collections.emptySet
-
 @ToString( includePackage = false, includeFields = true )
 @EqualsAndHashCode
 class Fact {
@@ -15,18 +13,18 @@ class Fact {
     final Object[] args
     final Condition condition
 
-    Fact( String name, Object[] args, Condition condition = new Condition( emptySet() ) ) {
+    Fact( String name, Object[] args ) {
         this.name = name
         this.args = args
-        this.condition = condition
+        this.condition = new Condition()
     }
 
 }
 
 class UnboundedFact extends Fact {
 
-    UnboundedFact( String name, Object[] args, Set<UnboundedVar> unboundedVars ) {
-        super( name, args, new Condition( unboundedVars ) )
+    UnboundedFact( String name, Object[] args ) {
+        super( name, args )
     }
 
 }
@@ -35,8 +33,8 @@ class Condition {
 
     private final ConditionGrolog grolog
 
-    Condition( Set<UnboundedVar> unboundedVars ) {
-        this.grolog = new ConditionGrolog( unboundedVars )
+    Condition() {
+        this.grolog = new ConditionGrolog()
     }
 
     void iff( Closure clausesCallback ) {

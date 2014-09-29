@@ -9,6 +9,11 @@ import java.util.concurrent.atomic.AtomicReference
  */
 class Var {
 
+    /**
+     * Ignorable Var -> will match any argument
+     */
+    static final _ = new Object()
+
     private final ref = new AtomicReference()
 
     @PackageScope

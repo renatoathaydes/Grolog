@@ -19,7 +19,7 @@ class GrologParserTest extends GroovyTestCase {
         def grolog = new GrologParser().parsePredicates( input )
         assert grolog.query( 'water' ).exists
         assert grolog.query( 'person', 'Renato' ).exists
-        assert grolog.query( 'worker', 'Renato', new Var() ).exists
+        assert grolog.query( 'worker', 'Renato', Var._ ).exists
         assert !grolog.query( 'whatever' ).exists
     }
 

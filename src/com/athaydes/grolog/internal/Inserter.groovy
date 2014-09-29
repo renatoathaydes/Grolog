@@ -5,30 +5,28 @@ import com.athaydes.grolog.ArityException
 class Inserter {
 
     private final Map<String, Set<Fact>> facts
-    protected final Set<UnboundedVar> unboundedVars
 
-    Inserter( Map<String, Set<Fact>> facts, Set<UnboundedVar> unboundedVars ) {
+    Inserter( Map<String, Set<Fact>> facts ) {
         this.facts = facts
-        this.unboundedVars = unboundedVars
     }
 
     void clear() {
         facts.clear()
-        unboundedVars.clear()
     }
 
     def addVar( String name ) {
         if ( name.toCharArray()[ 0 ].upperCase ) {
-            def var = new UnboundedVar( name )
-            unboundedVars << var
-            return var
+            return new UnboundedVar( name )
         }
         addFact( name, Collections.emptyList() as Object[] )
     }
 
     Fact addFact( String name, Object[] args ) {
-        def fact = unboundedVars ? new UnboundedFact( name, args, drain( unboundedVars ) ) : new Fact( name, args )
-        addFact fact
+        addFact createFact( name, args )
+    }
+
+    static Fact createFact( String name, Object[] args ) {
+        args.any { it instanceof UnboundedVar } ? new UnboundedFact( name, args ) : new Fact( name, args )
     }
 
     /**
@@ -55,12 +53,6 @@ class Inserter {
                 return fact
             default: throw new RuntimeException( "Trying to add unexpected Fact type ${fact.class.name}" )
         }
-    }
-
-    protected Set drain( Set set ) {
-        def copy = new LinkedHashSet( set )
-        set.clear()
-        copy
     }
 
 }

@@ -7,14 +7,10 @@ class Grolog {
     protected final Inserter inserter
     protected final Querier querier
 
-    protected Grolog( Set<UnboundedVar> unboundedVars ) {
+    protected Grolog() {
         def facts = [ : ]
-        this.inserter = new Inserter( facts, unboundedVars )
+        this.inserter = new Inserter( facts )
         this.querier = createQuerier( facts )
-    }
-
-    public Grolog() {
-        this( [ ] as Set<UnboundedVar> )
     }
 
     protected createQuerier( Map facts ) {
@@ -47,9 +43,10 @@ class Grolog {
         println "Query $q ? $args --- Facts: ${querier.allFacts()}"
         def result = querier.query q, args
         switch ( result ) {
-            case Boolean: return QueryResult.TrueFalse( result )
-            case Iterable: return QueryResult.MultipleBindings( result )
-            case String: return QueryResult.Error( result )
+            case Boolean: return QueryResult.TrueFalse( result as Boolean )
+            case Iterable: return QueryResult.MultipleBindings( result as Iterable )
+            case String: return QueryResult.Error( result as String )
+            default: throw new UnsupportedOperationException( "Unexpected query ResultType: ${result.class.name}" )
         }
     }
 
@@ -70,10 +67,6 @@ class Grolog {
 }
 
 class ConditionGrolog extends Grolog {
-
-    ConditionGrolog( Set<UnboundedVar> unboundedVars ) {
-        super( unboundedVars )
-    }
 
     @Override
     protected createQuerier( Map facts ) {

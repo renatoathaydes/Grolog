@@ -1,6 +1,7 @@
 package com.athaydes.grolog.internal
 
 import com.athaydes.grolog.ArityException
+import com.athaydes.grolog.InvalidDeclaration
 import com.athaydes.grolog.Var
 
 import java.util.concurrent.atomic.AtomicReference
@@ -15,6 +16,10 @@ class Querier {
         this.facts = facts
     }
 
+    Set<Fact> allFacts() {
+        facts.values().flatten()
+    }
+
     def query( String q, Object[] args ) {
         verifyValidQuery q, args
         ensureAllVarsEmpty args
@@ -22,7 +27,8 @@ class Querier {
     }
 
     protected queryInternal( String q, Object[] queryArgs ) {
-        def possibilities = new ArrayList<Fact>( facts[ q ] ?: emptyList() )
+        println "Query: $q $queryArgs"
+        def possibilities = new LinkedList<Fact>( facts[ q ] ?: emptyList() )
 
         if ( !possibilities ) return false
 
@@ -31,7 +37,7 @@ class Querier {
         }
 
         new Iterable() {
-            def nextElement
+            def nextElement = null
             boolean hasNextCalledLast = false
 
             Iterator iterator() {
@@ -51,16 +57,63 @@ class Querier {
 
     protected boolean simpleQuerySatisfies( Fact fact, Object[] queryArgs ) {
         def conditionsSatisfied = {
+            List<UnboundedFact> correlatedClauses = [ ]
             for ( clause in fact.condition.allClauses() ) {
-                def queriedFact = new Fact( clause.name, resolvedArgs( fact, clause, queryArgs ) )
-                if ( !( queriedFact in facts[ clause.name ] ) ) return false
+                def resolvedArgs = resolvedArgs( fact, clause, queryArgs )
+                def clauseAsFact = Inserter.createFact( clause.name, resolvedArgs )
+                if ( clauseAsFact instanceof UnboundedFact ) {
+                    correlatedClauses << clauseAsFact
+                } else {
+                    if ( correlatedClauses )
+                        throw new InvalidDeclaration( "Unbounded clause(s) must not be followed by definite clause: $fact" )
+                    if ( !( clauseAsFact in facts[ clause.name ] ) )
+                        return false
+                }
             }
-            return true
+            satisfiedCorrelatedClauses correlatedClauses, [ : ]
         }
         def simpleQueryArgsMatch = {
-            fact instanceof UnboundedFact || fact.args.toList() == queryArgs.toList()
+            fact instanceof UnboundedFact || matchSuccessful( fact, queryArgs )
         }
         simpleQueryArgsMatch() && conditionsSatisfied()
+    }
+
+    boolean satisfiedCorrelatedClauses( List<UnboundedFact> correlatedClauses, Map paramsByName ) {
+        if ( !correlatedClauses ) return true
+
+        def clause = correlatedClauses.first()
+
+        // replace UnboundedVars in args with Vars or concrete instances if found any in earlier iterations
+        def params = clause.args.collect {
+            it instanceof UnboundedVar ? ( paramsByName[ it.name ] ?: new Var() ) : it
+        }
+
+        def queryResults = queryInternal( clause.name, params as Object[] )
+
+        if ( !( queryResults instanceof Iterable ) ) return queryResults
+        queryResults = queryResults.iterator()
+
+        if ( !queryResults.hasNext() ) return false
+
+        def unboundedVarNames = clause.args.toList().findResults {
+            it instanceof UnboundedVar && paramsByName[ it.name ] == null ? it.name : null
+        }
+
+        if ( !unboundedVarNames ) return true
+
+        while ( queryResults.hasNext() ) {
+            queryResults.next()
+            def visitedVars = params.findAll { it instanceof Var } as LinkedList<Var>
+            for ( varName in unboundedVarNames ) {
+                def param = visitedVars.removeFirst()
+                assert param.get() != null, 'Satisfied Var with null'
+                paramsByName[ varName ] = param.get()
+            }
+            if ( !satisfiedCorrelatedClauses( correlatedClauses.tail(), paramsByName ) )
+                return false
+        }
+
+        return true
     }
 
     Map<String, Object> boundedArgs( UnboundedFact fact, Object[] queryArgs ) {
@@ -73,55 +126,6 @@ class Querier {
         boundedArgs.asImmutable()
     }
 
-    Set<Fact> allPossibilities( String name = null, Object[] queryArgs = [ ] ) {
-        filterFacts( name ) { Fact fact ->
-            ( fact instanceof UnboundedFact ) ? fact : provenFactOrNull( fact, queryArgs )
-        }
-    }
-
-    Set<Fact> provenFacts( String name = null, Object[] queryArgs = [ ] ) {
-        filterFacts( name ) { Fact fact ->
-            provenFactOrNull( fact, queryArgs )
-        }
-    }
-
-    Set<Fact> allFacts() {
-        facts.values().flatten()
-    }
-
-    protected Fact provenFactOrNull( Fact fact, Object[] queryArgs, boolean resolveUnboundedAndConditionalFacts ) {
-        if ( !resolveUnboundedAndConditionalFacts && ( fact instanceof UnboundedFact || fact.condition.hasClauses() ) ) {
-            return null
-        }
-        def conditions = fact.condition.allClauses()
-        if ( !conditions ) {
-            return ( fact instanceof UnboundedFact ) ? null : match( [ fact ] as Set, queryArgs, 0, [ ] ) ? fact : null
-        }
-
-        Map<String, Object> boundedArgs = ( fact instanceof UnboundedFact ) ? fact.boundedArgs( queryArgs ) : null
-        def conditionsSatisfied = conditions.every { Fact cond -> conditionSatisfied( cond, boundedArgs ) }
-
-        if ( conditionsSatisfied ) {
-            //FIXME
-            return boundedArgs ? new Fact( fact.name, resolvedArgs( fact.args, boundedArgs ) ) : fact
-        } else {
-            return null
-        }
-    }
-
-    protected boolean conditionSatisfied( Fact cond, Map<String, Object> boundedArgs ) {
-        Object[] actualArgs = boundedArgs ? resolvedArgs( cond.args, boundedArgs ) : cond.args
-        queryInternal( cond.name, actualArgs ) //TODO here we need to resolve fact, use another method
-    }
-
-    private Set<Fact> filterFacts( String name, Closure<Fact> filter ) {
-        if ( name ) {
-            facts.get( name )?.findResults filter
-        } else {
-            facts.values().flatten().findResults filter
-        }
-    }
-
     private void verifyValidQuery( String q, Object[] queryArgs ) {
         assert q, 'A query must be provided'
         def possibilities = facts[ q ]
@@ -131,11 +135,29 @@ class Querier {
     }
 
     private void ensureAllVarsEmpty( Object[] args ) {
-        args.findAll { it instanceof AtomicReference }.each { it.set( null ) }
+        args.findAll { it instanceof Var }.each { Var var -> var.set( null ) }
     }
 
-    protected static unify( possibilities, queryArgs ) {
-        null
+    protected static unify( LinkedList<Fact> possibilities, Object[] queryArgs ) {
+        println "Trying to unify possibilities $possibilities with $queryArgs"
+        while ( possibilities ) {
+            if ( matchSuccessful( possibilities.removeFirst(), queryArgs ) ) return true
+        }
+        return null
+    }
+
+    private static boolean matchSuccessful( Fact fact, Object[] queryArgs ) {
+        assert fact.args.size() == queryArgs.size(), "Fact and queryArgs have different sizes"
+        for ( argPair in [ fact.args, queryArgs ].transpose() ) {
+            def factArg = argPair[ 0 ]
+            def queryArg = argPair[ 1 ]
+            if ( !( factArg instanceof UnboundedVar ) ) {
+                if ( queryArg instanceof Var ) queryArg.set factArg
+                else if ( !Var._.is( queryArg ) && factArg != queryArg ) return false
+            }
+        }
+        println "Unification of $fact with $queryArgs successful"
+        return true
     }
 
     protected Object[] resolvedArgs( Fact fact, Fact cond, Object[] queryArgs ) {
@@ -143,7 +165,7 @@ class Querier {
             def boundedArgs = boundedArgs( fact, queryArgs )
             def res = cond.args.collect { arg ->
                 if ( arg instanceof UnboundedVar ) {
-                    boundedArgs[ arg.name ]
+                    boundedArgs[ arg.name ] ?: arg
                 } else {
                     arg
                 }
@@ -152,89 +174,6 @@ class Querier {
             res
         } else {
             cond.args
-        }
-    }
-
-    private match( Set<Fact> facts, Object[] queryArgs, int index,
-                   List maybeMatches ) {
-        def candidateFacts = facts.findAll { it.args.size() >= index }
-        if ( index >= queryArgs.size() ) {
-            return ( candidateFacts ? bindMatches( maybeMatches, candidateFacts, queryArgs ) : true )
-        }
-
-        def queryArg = queryArgs[ index ] instanceof AtomicReference
-        def matchingFacts = null
-
-        if ( queryArg ) {
-            maybeMatches << [ queryArgs[ index ], candidateFacts, index ]
-        } else {
-            matchingFacts = factMatches( candidateFacts, queryArgs, index )
-        }
-
-        if ( queryArg || matchingFacts ) {
-            match( queryArg ? candidateFacts : matchingFacts, queryArgs, index + 1, maybeMatches )
-        } else {
-            false
-        }
-    }
-
-    protected Set<Fact> factMatches( Set<Fact> facts, Object[] queryArgs, int argIndex ) {
-        facts.findAll { it.args[ argIndex ] instanceof UnboundedVar || it.args[ argIndex ] == queryArgs[ argIndex ] }
-    }
-
-    private bindMatches( List<List> maybeMatches, Set<Fact> candidateFacts, Object[] queryArgs ) {
-        if ( !candidateFacts ) {
-            println "No candidate facts"
-            return false
-        }
-
-        if ( !maybeMatches ) {
-            println "No maybe matches! Candidates: ${candidateFacts}"
-            return satisfiedFacts( candidateFacts, queryArgs )
-        }
-
-        for ( maybeMatch in maybeMatches ) {
-            maybeMatchQuery( maybeMatch, candidateFacts.findAll { provenFactOrNull( it, [ ] as Object[], false ) } )
-        }
-
-        ensureListsWithOneItemAreLifted maybeMatches
-        maybeMatches.every { maybeMatch ->
-            def current = maybeMatch[ 0 ]
-            ( current instanceof AtomicReference<List> ? current.get() != null : true )
-        }
-    }
-
-    protected satisfiedFacts( Set<Fact> candidateFacts, Object[] queryArgs ) {
-        for ( candidate in candidateFacts ) {
-            if ( candidate instanceof UnboundedFact ) {
-                for ( clause in candidate.condition.allClauses() ) {
-                    def satisfied = provenFacts( clause.name, queryArgs )
-                    println "Checking if clause is satisfied $clause: $queryArgs ? $satisfied"
-                    if ( !satisfied ) {
-                        println "Nope"
-                        return false
-                    }
-                }
-            }
-        }
-        return true
-    }
-
-    private void maybeMatchQuery( List maybeMatch, Set<Fact> trueFacts ) {
-        def current = maybeMatch[ 0 ] as AtomicReference<List>
-        def maybeFacts = maybeMatch[ 1 ] as Set<Fact>
-        def index = maybeMatch[ 2 ] as int
-
-        def currentValue = maybeFacts.findAll { it in trueFacts }.collect { it.args[ index ] }
-
-        if ( currentValue.any { it instanceof AtomicReference } ) {
-            return
-        }
-
-        if ( current.get() == null ) {
-            current.set currentValue
-        } else {
-            current.get().addAll currentValue
         }
     }
 
@@ -253,11 +192,6 @@ class ConditionQuerier extends Querier {
 
     ConditionQuerier( Map<String, Set<Fact>> facts ) {
         super( facts )
-    }
-
-    @Override
-    protected Set<Fact> factMatches( Set<Fact> facts, Object[] queryArgs, int argIndex ) {
-        facts.findAll { it.args[ argIndex ] == queryArgs[ argIndex ] }
     }
 
 }
