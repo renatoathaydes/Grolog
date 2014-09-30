@@ -72,10 +72,10 @@ class Querier {
             }
             satisfiedCorrelatedClauses correlatedClauses, [ : ]
         }
-        def simpleQueryArgsMatch = {
-            fact instanceof UnboundedFact || matchSuccessful( fact, queryArgs )
-        }
-        simpleQueryArgsMatch() && conditionsSatisfied()
+
+        def mightMatchQuery = fact instanceof UnboundedFact || matchSuccessful( fact, queryArgs )
+
+        mightMatchQuery && conditionsSatisfied()
     }
 
     boolean satisfiedCorrelatedClauses( List<UnboundedFact> correlatedClauses, Map paramsByName ) {
@@ -109,7 +109,7 @@ class Querier {
                 assert param.get() != null, 'Satisfied Var with null'
                 paramsByName[ varName ] = param.get()
             }
-            if ( !satisfiedCorrelatedClauses( correlatedClauses.tail(), paramsByName ) )
+            if ( !satisfiedCorrelatedClauses( correlatedClauses.tail(), paramsByName.clone() ) )
                 return false
         }
 
@@ -148,14 +148,17 @@ class Querier {
 
     private static boolean matchSuccessful( Fact fact, Object[] queryArgs ) {
         assert fact.args.size() == queryArgs.size(), "Fact and queryArgs have different sizes"
+        def valueByQueryVarIndex = [ : ]
+        def index = 0
         for ( argPair in [ fact.args, queryArgs ].transpose() ) {
             def factArg = argPair[ 0 ]
             def queryArg = argPair[ 1 ]
-            if ( !( factArg instanceof UnboundedVar ) ) {
-                if ( queryArg instanceof Var ) queryArg.set factArg
-                else if ( !Var._.is( queryArg ) && factArg != queryArg ) return false
-            }
+            assert !( factArg instanceof UnboundedVar )
+            if ( queryArg instanceof Var ) valueByQueryVarIndex[ index ] = factArg
+            else if ( !Var._.is( queryArg ) && factArg != queryArg ) return false
+            index++
         }
+        valueByQueryVarIndex.each { int i, value -> ( queryArgs[ i ] as Var ).set( value ) }
         println "Unification of $fact with $queryArgs successful"
         return true
     }

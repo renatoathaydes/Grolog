@@ -1,12 +1,14 @@
 package com.athaydes.grolog
 
 import groovy.transform.PackageScope
+import groovy.transform.ToString
 
 import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Placeholder for a Grolog query variable
  */
+@ToString(includePackage = false, includeFields = true)
 class Var {
 
     /**
